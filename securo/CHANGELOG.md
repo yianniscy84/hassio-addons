@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.30.1
+
+- Sync with upstream Securo v0.15.1
+- New: Greek (`el`), Hindi (`hi`), and Japanese (`ja`) UI translations
+- New: Passkey conditional UI login enhancement (autofill integration)
+- New: Rules filter support
+- New: Biweekly and semiannual recurrence frequencies
+- New: Report exclusion flag for transactions
+- New: External ID support for assets via API
+- Fix: Show profit calculations for manual and sold holdings
+- Fix: Clarify pending spending and keep projections inside total shown in transaction drill-down
+- Fix: CSV import error handling and failed row tracking
+- Fix: Rules overriding provider categories during sync
+- Fix: Credit card bill totals excluded from reporting filter
+- Fix: Client IP derivation from configured trusted-proxy hop
+- Chore: Update Python and frontend dependencies (`uv`, `react-is`, `ty`)
+
 ## 0.30.0
 
 - Sync with upstream securo v0.15.0

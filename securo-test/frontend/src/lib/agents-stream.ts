@@ -6,7 +6,6 @@
  * response stream by hand.
  */
 import { WORKSPACE_STORAGE_KEY } from '@/lib/api'
-import { basename } from '@/lib/basename'
 
 export type AgentStreamEvent =
   | { kind: 'conversation'; conversation_id: string }
@@ -40,7 +39,7 @@ export async function streamChat(opts: SendMessageOptions): Promise<void> {
     Authorization: token ? `Bearer ${token}` : '',
   }
   if (workspaceId) headers['X-Workspace-Id'] = workspaceId
-  const res = await fetch(`${basename}/api/agents/${opts.agentId}/chat`, {
+  const res = await fetch(`/api/agents/${opts.agentId}/chat`, {
     method: 'POST',
     signal: opts.signal,
     headers,
