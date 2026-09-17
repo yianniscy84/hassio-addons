@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.31.0
+
+- Sync with upstream Securo v0.16.0
+- New: Automated payment matching to open invoices with customizable reconciliation threshold rules
+- New: Reconciliation review queue with one-click match/decline, history tracking, and cash forecast integration
+- New: Rule editor pre-fills conditions and actions directly when adding a transaction to a rule
+- New: MCP rule management tools (list, preview, create, update, delete via agent proposals)
+- New: Seven new currencies: Chinese Yuan (`CNY`), Malaysian Ringgit (`MYR`), Egyptian Pound (`EGP`), Thai Baht (`THB`), UAE Dirham (`AED`), Moldovan Leu (`MDL`), Pakistani Rupee (`PKR`)
+- New: Indian financial year support (April–March fiscal cycle, INR currency formatting, day-first dates)
+- Fix: Editing recurring schedule recalculates and moves the next occurrence date
+- Fix: Synced credit card installments inherit category from the first installment
+- Fix: Credit card bill total calculation preserves charges categorized as transfers
+- Fix: Hand-picked date range expansions on cards no longer hide billed charges
+- Fix: Payee list pagination, long name truncation, and case-insensitive collation under C-locale Postgres
+- Fix: Preselect recognized categories during CSV import preview
+- Fix: Thought signature preservation in Gemini/OpenAI-compatible streaming tool responses
+- Fix: Removal dialogs for 2FA and passkeys on OIDC-only instances
+- Database: Automatic migrations `086` to `089` for reconciliation rules, suggestions, and history
+- Chore: Update `uv` to 0.12.15 and refresh dependencies
+
 ## 0.30.1
 
 - Sync with upstream Securo v0.15.1

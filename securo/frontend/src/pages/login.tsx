@@ -3,7 +3,6 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '@/contexts/auth-context'
 import { setup, auth as authApi, admin as adminApi } from '@/lib/api'
-import { basename } from '@/lib/basename'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -50,7 +49,7 @@ export default function LoginPage() {
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [isPasskeyLoading, setIsPasskeyLoading] = useState(false)
-  const [passkeySupported, setPasskeySupported] = useState(false)
+  const [passkeySupported] = useState(isPasskeySupported)
   const [registrationEnabled, setRegistrationEnabled] = useState(true)
   const [oidcConfig, setOidcConfig] = useState<OIDCConfig | null>(null)
   const [oidcConfigFailed, setOidcConfigFailed] = useState(false)
@@ -71,7 +70,6 @@ export default function LoginPage() {
   const showAuthDivider = localAuthEnabled && (showPasskeyLogin || oidcEnabled)
 
   useEffect(() => {
-    setPasskeySupported(isPasskeySupported())
     if (token) {
       navigate('/', { replace: true })
       return
@@ -137,6 +135,10 @@ export default function LoginPage() {
           options.options,
           abortController.signal,
         )
+        // A challenge is one-shot server-side: verifying one the user already
+        // walked away from burns it and answers a ceremony nobody is watching.
+        if (abortController.signal.aborted) return
+
         const result = await authApi.verifyPasskeyAuthentication(options.challenge_id, credential)
         if (abortController.signal.aborted) return
 
@@ -200,7 +202,7 @@ export default function LoginPage() {
 
   const handleOIDCLogin = () => {
     conditionalPasskeyAbortRef.current?.abort()
-    window.location.href = `${basename}/api/auth/oidc/login`
+    window.location.href = '/api/auth/oidc/login'
   }
 
   const handlePasskeyLogin = async () => {
@@ -417,7 +419,11 @@ export default function LoginPage() {
           {localAuthEnabled && (
             <CardContent className="space-y-4 px-8 pt-4">
               {error && (
-                <div className="p-3 text-sm text-destructive bg-destructive/10 rounded-lg">
+                <div
+                  id="login-error"
+                  role="alert"
+                  className="p-3 text-sm text-destructive bg-destructive/10 rounded-lg"
+                >
                   {error}
                 </div>
               )}
@@ -427,9 +433,13 @@ export default function LoginPage() {
                   id="email"
                   type="email"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={(e) => {
+                    setEmail(e.target.value)
+                    setError('')
+                  }}
                   placeholder="you@example.com"
                   autoComplete="username webauthn"
+                  aria-describedby={error ? 'login-error' : undefined}
                   required
                 />
               </div>

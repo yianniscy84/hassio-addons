@@ -3,7 +3,7 @@ description: >-
   Self-hosted personal finance manager (TEST). Multi-account tracking,
   transaction imports, bank sync, budgets, goals, reports, and optional MCP.
   This is a test/experimental version
-version: "0.30.1"
+version: "0.31.0"
 slug: "securo-test"
 init: false
 arch:
