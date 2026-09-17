@@ -2,7 +2,7 @@ name: "Securo"
 description: >-
   Self-hosted personal finance manager. Multi-account tracking,
   transaction imports, bank sync, budgets, goals, reports, and optional MCP
-version: "0.31.0"
+version: "0.31.1"
 slug: "securo"
 init: false
 arch:
@@ -43,6 +43,7 @@ options:
   enable_banking_app_id: ""
   enable_banking_private_key_file: ""
   enable_banking_oauth_redirect_uri: ""
+  enable_banking_history_days: 999
   simplefin_enabled: false
   simplefin_api_url: "https://beta-bridge.simplefin.org"
   oidc_enabled: false
@@ -86,6 +87,7 @@ schema:
   enable_banking_app_id: str
   enable_banking_private_key_file: str
   enable_banking_oauth_redirect_uri: str
+  enable_banking_history_days: int
   simplefin_enabled: bool
   simplefin_api_url: str
   oidc_enabled: bool

@@ -69,8 +69,14 @@ See [`UPSTREAM.md`](UPSTREAM.md) for version matrix and sync tracking.
    - `frontend/src/App.tsx` (`<BrowserRouter basename={basename}>`)
    - `frontend/src/lib/api.ts` (`basename` in `baseURL` + login redirect)
    - `frontend/vite.config.ts` (`base: './'`)
-3. Regenerate lockfile if backend dependencies changed: `cd backend && uv lock`.
-4. Update `UPSTREAM.md` with new upstream version and sync timestamp.
+3. **Re-apply active patches (see [`UPSTREAM.md`](UPSTREAM.md)):**
+   - Check if upstream merged the PR in the new release.
+   - If not yet merged upstream, re-apply active patches:
+     `git apply --directory=securo patches/securo/*.patch`
+     `git apply --directory=securo-test patches/securo/*.patch`
+   - If merged upstream, remove obsolete patch file from `patches/securo/` and update `UPSTREAM.md`.
+4. Regenerate lockfile if backend dependencies changed: `cd backend && uv lock`.
+5. Update `UPSTREAM.md` with new upstream version and sync timestamp.
 
 ---
 

@@ -8,8 +8,8 @@ This file tracks upstream versions for each addon.
 
 | Addon | Upstream Version | Addon Version | Last Synced |
 |-------|-----------------|---------------|-------------|
-| `securo/` (production) | v0.16.0 | 0.31.0 | 2026-09-17 |
-| `securo-test/` (test) | v0.16.0 | 0.31.0 | 2026-09-17 |
+| `securo/` (production) | v0.16.0 | 0.31.1 | 2026-09-17 |
+| `securo-test/` (test) | v0.16.0 | 0.31.1 | 2026-09-17 |
 
 The production and test addons track different upstream versions. Test gets updates first; production is synced after testing.
 
@@ -21,6 +21,23 @@ The production and test addons track different upstream versions. Test gets upda
 | `omniroute-test/` (test) | v3.8.50 | 0.3.6 | 2026-08-30 |
 
 Both addons clone from upstream Git tags. Bump `OMNIROUTE_VERSION` in the Dockerfile to update.
+
+## Active Patches & Upstream PRs
+
+### Securo
+
+| Patch File | Upstream PR / Fork Branch | Target Files | Status |
+|---|---|---|---|
+| [`patches/securo/0001-enable-banking-duplicate-reconnect.patch`](patches/securo/0001-enable-banking-duplicate-reconnect.patch) | [`yianniscy84/securo:fix/enable-banking-duplicate-reconnect`](https://github.com/yianniscy84/securo/tree/fix/enable-banking-duplicate-reconnect) | `backend/app/services/connection_service.py`<br>`backend/app/providers/enable_banking.py`<br>`backend/app/core/config.py` | Active (pending upstream merge) |
+
+When syncing Securo from upstream:
+1. Check if the upstream release includes the PR/fix.
+2. If included upstream, delete the patch file from `patches/securo/` and remove from this table.
+3. If not yet included upstream, apply all active patches after copying upstream code:
+   ```bash
+   git apply --directory=securo patches/securo/*.patch
+   git apply --directory=securo-test patches/securo/*.patch
+   ```
 
 ## Upstream Repos
 
@@ -38,6 +55,7 @@ Both addons clone from upstream Git tags. Bump `OMNIROUTE_VERSION` in the Docker
   - `*/frontend/src/App.tsx` — `<BrowserRouter basename={basename}>`
   - `*/frontend/src/lib/api.ts` — basename in baseURL + login redirect
   - `*/frontend/vite.config.ts` — `base: './'` for relative asset paths
+- Active patches from `patches/securo/` must be reapplied if upstream has not yet merged them.
 - `uv.lock` must be regenerated after syncing `pyproject.toml` (`uv lock`)
 - `frontend/dist/` is NOT committed — built during `docker build`
 

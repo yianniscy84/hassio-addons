@@ -20,6 +20,9 @@ configuration:
   enable_banking_app_id:
     name: Enable Banking App ID
     description: Application ID for Enable Banking (European banks).
+  enable_banking_history_days:
+    name: Enable Banking History Days
+    description: Number of days of transaction history to fetch on initial sync (default 999).
   simplefin_enabled:
     name: SimpleFIN Enabled
     description: Enable SimpleFIN bank sync (US and international).

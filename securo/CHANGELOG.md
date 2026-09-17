@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.31.1
+
+- Fix: Prevent duplicate bank accounts on Enable Banking reauthorization by matching existing accounts on masked number and currency when ephemeral session UIDs rotate
+- Fix: Prevent duplicate bank connections by automatically adopting existing disconnected/expired connections matching the institution name on OAuth reconnect
+- Fix: Stable transaction fingerprints across Enable Banking reauth sessions by excluding ephemeral session account UIDs from hash calculation
+- Fix: Expand initial Enable Banking transaction sync history to 999 days using `strategy="longest"` (configurable via `enable_banking_history_days`)
+- Fix: Automatic self-healing consolidation of legacy duplicate accounts and transactions under a connection, preserving the original account UUID and custom display names
+- New: Add `enable_banking_history_days` configuration option in add-on options (default: 999)
+
 ## 0.31.0
 
 - Sync with upstream Securo v0.16.0

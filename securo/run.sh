@@ -35,6 +35,7 @@ PLUGGY_CLIENT_SECRET=$(bashio::config 'pluggy_client_secret')
 ENABLE_BANKING_APP_ID=$(bashio::config 'enable_banking_app_id')
 ENABLE_BANKING_PRIVATE_KEY_FILE=$(bashio::config 'enable_banking_private_key_file')
 ENABLE_BANKING_OAUTH_REDIRECT_URI=$(bashio::config 'enable_banking_oauth_redirect_uri')
+ENABLE_BANKING_HISTORY_DAYS=$(bashio::config 'enable_banking_history_days')
 SIMPLEFIN_ENABLED=$(bashio::config 'simplefin_enabled')
 SIMPLEFIN_API_URL=$(bashio::config 'simplefin_api_url')
 
@@ -95,6 +96,7 @@ export ENABLE_BANKING_APP_ID
 export ENABLE_BANKING_PRIVATE_KEY_FILE
 export ENABLE_BANKING_API_URL="https://api.enablebanking.com"
 export ENABLE_BANKING_OAUTH_REDIRECT_URI
+[ -n "${ENABLE_BANKING_HISTORY_DAYS}" ] && export ENABLE_BANKING_HISTORY_DAYS
 export SIMPLEFIN_ENABLED
 export SIMPLEFIN_API_URL
 
