@@ -8,8 +8,8 @@ This file tracks upstream versions for each addon.
 
 | Addon | Upstream Version | Addon Version | Last Synced |
 |-------|-----------------|---------------|-------------|
-| `securo/` (production) | v0.16.0 | 0.31.1 | 2026-09-17 |
-| `securo-test/` (test) | v0.16.0 | 0.31.1 | 2026-09-17 |
+| `securo/` (production) | v0.16.1 | 0.31.2 | 2026-09-24 |
+| `securo-test/` (test) | v0.16.1 | 0.31.2 | 2026-09-24 |
 
 The production and test addons track different upstream versions. Test gets updates first; production is synced after testing.
 

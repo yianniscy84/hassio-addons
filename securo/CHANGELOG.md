@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.31.2
+
+- Sync with upstream Securo v0.16.1
+- New: Custom date range picker for report analysis (Net Worth, Income & Expenses)
+- New: Transfer matching rules tab directly on the Rules page
+- New: Four new currencies: Serbian Dinar (`RSD`), Jamaican Dollar (`JMD`), Saudi Riyal (`SAR`), Qatari Riyal (`QAR`)
+- New: Collapsible desktop sidebar for wider workspace views
+- Fix: Harden bank connection sync correctness and duplicate prevention across providers
+- Fix: Persist manual transaction external IDs across edits
+- Fix: Return newest messages when agent conversation history window is exceeded
+- Fix: Allow receipt attachments upload over plain HTTP
+- Fix: Strip marker characters (`*`, `#`) from CSV template headers for auto-detection
+- Fix: Deduplicate Pluggy shared credit balance calculations
+- Fix: Shape `get_account_summary` MCP tool payload consistently with other tools
+- Database: Automatic migrations `090` (account shared balance group) and `091` (suggestion transaction kind)
+- Chore: Update Python and dependency lockfile (`uv` 0.12.17)
+
 ## 0.31.1
 
 - Fix: Prevent duplicate bank accounts on Enable Banking reauthorization by matching existing accounts on masked number and currency when ephemeral session UIDs rotate

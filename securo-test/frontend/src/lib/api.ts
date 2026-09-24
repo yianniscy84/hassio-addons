@@ -1055,15 +1055,22 @@ export const reconciliation = {
       `/reconciliation/rules/${encodeURIComponent(node)}/${encodeURIComponent(id)}/reset`,
     )
   },
-  exportRules: async (): Promise<void> => {
+  /** `node` narrows the file to one set. Each set is its own card with
+   *  its own button, and a button under one heading that hands over
+   *  another set's rules is a button that lies. */
+  exportRules: async (node?: string): Promise<void> => {
     const { data } = await api.get('/reconciliation/rules/export', {
       responseType: 'blob',
+      params: node ? { node } : undefined,
     })
     const blob = new Blob([data], { type: 'application/json;charset=utf-8;' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `securo-reconciliation-rules-${new Date().toISOString().slice(0, 10)}.json`
+    // The set in the filename, so two exports do not overwrite each
+    // other in the downloads folder on the same day.
+    const set = node ? `-${node.split('.').pop()}` : ''
+    a.download = `securo-reconciliation-rules${set}-${new Date().toISOString().slice(0, 10)}.json`
     document.body.appendChild(a)
     a.click()
     document.body.removeChild(a)
@@ -1074,11 +1081,13 @@ export const reconciliation = {
   importRules: async (
     payload: ReconciliationPolicyFile,
     overwrite = false,
+    node?: string,
   ): Promise<{ imported: number; skipped: number }> => {
-    const { data } = await api.post('/reconciliation/rules/import', {
-      payload,
-      overwrite,
-    })
+    const { data } = await api.post(
+      '/reconciliation/rules/import',
+      { payload, overwrite },
+      { params: node ? { node } : undefined },
+    )
     return data
   },
   /** What matching did, newest first. `expectationId` narrows it to
@@ -1381,11 +1390,20 @@ export const collections = {
 
 // Reports
 export const reports = {
-  netWorth: async (months = 12, interval = 'monthly', accountIds?: string[], assetGroupIds?: string[], period?: 'ytd'): Promise<ReportResponse> => {
+  netWorth: async (
+    months = 12,
+    interval = 'monthly',
+    accountIds?: string[],
+    assetGroupIds?: string[],
+    period?: 'ytd',
+    startDate?: string,
+    endDate?: string,
+  ): Promise<ReportResponse> => {
     const hasFilter = (accountIds && accountIds.length > 0) || (assetGroupIds && assetGroupIds.length > 0)
     const { data } = await api.get('/reports/net-worth', {
       params: {
         months, interval, period,
+        ...(startDate && endDate ? { start_date: startDate, end_date: endDate } : {}),
         ...(accountIds && accountIds.length > 0 ? { account_ids: accountIds } : {}),
         ...(assetGroupIds && assetGroupIds.length > 0 ? { asset_group_ids: assetGroupIds } : {}),
       },
@@ -1394,10 +1412,27 @@ export const reports = {
     return data
   },
   // `days` requests an exact rolling window ending today, instead of the
-  // month-aligned window `months` produces.
-  incomeExpenses: async (months = 12, interval = 'monthly', accountIds?: string[], period?: 'ytd', days?: number): Promise<ReportResponse> => {
+  // month-aligned window `months` produces. `startDate`/`endDate` (both
+  // required together) pin the window to an explicit calendar range and
+  // override the preset selectors on the backend.
+  incomeExpenses: async (
+    months = 12,
+    interval = 'monthly',
+    accountIds?: string[],
+    period?: 'ytd',
+    days?: number,
+    startDate?: string,
+    endDate?: string,
+  ): Promise<ReportResponse> => {
     const extra = acctIdsParam(accountIds)
-    const { data } = await api.get('/reports/income-expenses', { params: { months, interval, period, days, ...(extra.params ?? {}) }, ...(extra.paramsSerializer ? { paramsSerializer: extra.paramsSerializer } : {}) })
+    const { data } = await api.get('/reports/income-expenses', {
+      params: {
+        months, interval, period, days,
+        ...(startDate && endDate ? { start_date: startDate, end_date: endDate } : {}),
+        ...(extra.params ?? {}),
+      },
+      ...(extra.paramsSerializer ? { paramsSerializer: extra.paramsSerializer } : {}),
+    })
     return data
   },
   cashFlow: async (months = 6, interval = 'daily', baseline = false, accountIds?: string[]): Promise<ReportResponse> => {
