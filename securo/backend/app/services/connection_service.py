@@ -11,6 +11,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.core.app_clock import app_today
 from app.core.config import get_settings
 from app.models.asset import Asset
 from app.models.asset_group import AssetGroup
@@ -29,6 +30,7 @@ from app.providers import get_provider
 from app.providers.base import (
     AccountData,
     HoldingData,
+    ProviderDataUnavailable,
     ProviderNotConfiguredError,
     ProviderRateLimited,
     ProviderUserActionRequired,
@@ -116,9 +118,11 @@ async def _resolve_institution(
     Matched by the provider's stable org id when it sends one, so a bank
     renamed on the provider side updates its row in place instead of minting
     a new one (review on #654); name identity is the fallback for servers
-    that only send a name. Providers without per-account hints
-    (Pluggy/Enable — one institution per connection) return None, and
-    serialization falls back to the connection's own fields.
+    that only send a name. Most Pluggy/Enable connections are one
+    institution and never send this hint (returns None, serialization falls
+    back to the connection's own fields) — the exception is a Pluggy
+    connection spanning a banking group's brokerage arm (issue #723), which
+    the provider detects and hints the same way SimpleFIN already does.
     """
     name = _clean_institution_name(acc_data.institution_name)
     if not name:
@@ -278,7 +282,7 @@ async def _sync_holdings(
         return
 
     source = connection.provider
-    today = date.today()
+    today = app_today()
 
     # Find-or-create the wallet(s) that own this connection's holdings. A
     # holding carrying its owning account (SimpleFIN — issue #345) gets one
@@ -1062,26 +1066,6 @@ async def handle_oauth_callback(
     provider = get_provider(provider_name)
     connection_data = await provider.handle_oauth_callback(code)
 
-    if not existing_reconnect and connection_data.institution_name:
-        # Detect reconnect from disconnected state (user clicked Connect Bank rather than Reconnect button)
-        existing_candidate = (
-            await session.execute(
-                select(BankConnection)
-                .where(
-                    BankConnection.workspace_id == workspace_id,
-                    BankConnection.provider == provider_name,
-                    func.lower(BankConnection.institution_name)
-                    == func.lower(connection_data.institution_name),
-                )
-                .order_by(
-                    BankConnection.status != "active",
-                    BankConnection.created_at.desc(),
-                )
-            )
-        ).scalars().first()
-        if existing_candidate:
-            existing_reconnect = existing_candidate
-
     if existing_reconnect:
         existing_reconnect.external_id = connection_data.external_id
         existing_reconnect.institution_name = (
@@ -1095,6 +1079,39 @@ async def handle_oauth_callback(
         await session.commit()
         await session.refresh(existing_reconnect)
         return existing_reconnect
+
+    if connection_data.institution_name:
+        # A user whose consent simply expired reaches this point without a
+        # reconnect_id: the UI sends them through Unlink / Connect Bank. Adopt
+        # the stale connection for the same institution instead of creating a
+        # second one, so its accounts, rules and history stay attached to a
+        # single row. Case-insensitive, and only when exactly one stale
+        # connection matches — if several do, creating a new one is safer than
+        # guessing which is the user's real bank.
+        candidates = (
+            await session.execute(
+                select(BankConnection).where(
+                    BankConnection.workspace_id == workspace_id,
+                    BankConnection.provider == provider_name,
+                    func.lower(BankConnection.institution_name)
+                    == connection_data.institution_name.lower(),
+                    BankConnection.status != "active",
+                )
+            )
+        ).scalars().all()
+        if len(candidates) == 1:
+            candidate = candidates[0]
+            candidate.external_id = connection_data.external_id
+            candidate.logo_url = (
+                _clean_logo_url(connection_data.logo_url) or candidate.logo_url
+            )
+            candidate.credentials = connection_data.credentials
+            candidate.status = "active"
+            # Re-sync from current data on the next sync cycle.
+            candidate.last_sync_at = None
+            await session.commit()
+            await session.refresh(candidate)
+            return candidate
 
     flow_params = dict(state_payload.get("flow_params") or {})
     flow_sync_assets = flow_params.pop("sync_assets", None)
@@ -1136,6 +1153,7 @@ async def handle_oauth_callback(
             connection_id=connection.id,
             external_id=acc_data.external_id,
             name=acc_data.name,
+            display_name=institution.name if institution else None,
             masked_number=acc_data.masked_number,
             type=acc_data.type,
             balance=acc_data.balance,
@@ -1321,6 +1339,81 @@ def _normalized_account_name(name: str | None) -> str:
     return " ".join((name or "").casefold().split())
 
 
+async def _cleanup_legacy_duplicate_accounts(
+    session: AsyncSession,
+    connection: BankConnection,
+) -> None:
+    """Consolidate duplicate accounts left behind by addon versions 0.31.1/0.31.2.
+
+    Those releases shipped a reauth fix that matched on masked_number +
+    currency, which still let a reauthorization insert a second row when the
+    bank also rotated the account type. `_find_existing_connected_account`
+    now keys on `stable_id` (migration 097) and prevents new duplicates, but
+    rows already duplicated in the database need consolidating once.
+
+    The survivor is picked deterministically by id so repeated syncs never
+    oscillate between rows, and it keeps its UUID, so rules, transactions and
+    opening balances stay attached to the account the user knows. Only
+    genuinely same-identity rows are merged: equal currency, equal masked
+    suffix and — once 097 has backfilled — an equal non-null stable_id.
+    """
+    accounts = list(
+        (
+            await session.execute(
+                select(Account).where(Account.connection_id == connection.id)
+            )
+        ).scalars().all()
+    )
+    by_identity: dict[tuple[str, str, str], list[Account]] = {}
+    for account in accounts:
+        if not account.masked_number or not account.currency:
+            continue
+        key = (account.currency, account.masked_number, account.stable_id or "")
+        by_identity.setdefault(key, []).append(account)
+
+    for group in by_identity.values():
+        if len(group) < 2:
+            continue
+        # Deterministic order so the same row survives every run. `accounts`
+        # carries no created_at, so fall back to the primary key: it is
+        # uuid4, hence not chronological, but it is stable, which is what
+        # matters — the survivor must not change between syncs.
+        group.sort(key=lambda a: str(a.id))
+        primary, duplicates = group[0], group[1:]
+        primary_ext_ids = {primary.external_id} if primary.external_id else set()
+        primary_fps = {
+            (t.external_id, t.amount, t.date, t.type, t.description)
+            for t in (await session.execute(
+                select(Transaction).where(Transaction.account_id == primary.id)
+            )).scalars().all()
+        }
+        for dup in duplicates:
+            dup_txs = list(
+                (
+                    await session.execute(
+                        select(Transaction).where(Transaction.account_id == dup.id)
+                    )
+                ).scalars().all()
+            )
+            for tx in dup_txs:
+                fp = (tx.external_id, tx.amount, tx.date, tx.type, tx.description)
+                if (tx.external_id and tx.external_id in primary_ext_ids) or fp in primary_fps:
+                    await session.delete(tx)
+                else:
+                    tx.account_id = primary.id
+                    if tx.external_id:
+                        primary_ext_ids.add(tx.external_id)
+                    primary_fps.add(fp)
+            await session.execute(
+                update(CreditCardBill)
+                .where(CreditCardBill.account_id == dup.id)
+                .values(account_id=primary.id)
+            )
+            await session.delete(dup)
+
+    await session.flush()
+
+
 async def _find_existing_connected_account(
     session: AsyncSession,
     connection: BankConnection,
@@ -1342,8 +1435,49 @@ async def _find_existing_connected_account(
         )
     )
     account = result.scalar_one_or_none()
-    if account or connection.provider != "simplefin":
+    if account is not None:
         return account
+
+    # The provider re-keyed this account. Enable Banking issues a `uid` scoped to
+    # one session, so reauthorising changes it while `stable_id` (the
+    # identification_hash) survives. Rebind the existing row — keeping its
+    # transactions, rules and name overrides — instead of inserting a duplicate.
+    # `.first()` mirrors the transaction lookup: a stray duplicate must not abort
+    # the whole connection's sync.
+    if acc_data.stable_id:
+        stable_match = (await session.execute(
+            select(Account).where(
+                Account.connection_id == connection.id,
+                Account.stable_id == acc_data.stable_id,
+            )
+        )).scalars().first()
+        if stable_match is not None:
+            stable_match.external_id = acc_data.external_id
+            return stable_match
+
+    # Last resort for rows that predate `stable_id` (added by migration 097, and
+    # only ever backfilled by a *successful* sync — which a user whose bank was
+    # failing never had). The masked identifier is the closest thing to an
+    # account number we keep. Require a single candidate: a shared last-4 must
+    # never merge two accounts, and a duplicate is recoverable where crossed
+    # transactions are not.
+    if acc_data.masked_number:
+        masked_rows = (await session.execute(
+            select(Account).where(
+                Account.connection_id == connection.id,
+                Account.masked_number == acc_data.masked_number,
+                Account.currency == acc_data.currency,
+            )
+        )).scalars().all()
+        masked_rows = [
+            row for row in masked_rows if row.external_id not in incoming_external_ids
+        ]
+        if len(masked_rows) == 1:
+            masked_rows[0].external_id = acc_data.external_id
+            return masked_rows[0]
+
+    if connection.provider != "simplefin":
+        return None
 
     normalized_name = _normalized_account_name(acc_data.name)
     if not normalized_name:
@@ -1597,7 +1731,7 @@ async def _find_synced_duplicate(
 async def _cleanup_phantom_duplicates(
     session: AsyncSession,
     connection_id: uuid.UUID,
-) -> int:
+) -> set[uuid.UUID]:
     """Delete synced transactions that are phantom duplicates.
 
     Some providers (or sandbox data) report the same payment twice with
@@ -1610,13 +1744,16 @@ async def _cleanup_phantom_duplicates(
     within ±1 day. The pairing of the sibling is the safety signal that lets
     us distinguish the duplicate from a legitimate same-day repeat (e.g. two
     real Uber rides for the same fare).
+
+    Returns the ids of the accounts that lost a row, so the caller can
+    reconcile their opening balances against what is left.
     """
     accounts_result = await session.execute(
         select(Account.id).where(Account.connection_id == connection_id)
     )
     account_ids = [row[0] for row in accounts_result.all()]
     if not account_ids:
-        return 0
+        return set()
 
     unmatched_result = await session.execute(
         select(Transaction).where(
@@ -1627,7 +1764,7 @@ async def _cleanup_phantom_duplicates(
     )
     unmatched = list(unmatched_result.scalars().all())
 
-    deleted = 0
+    touched: set[uuid.UUID] = set()
     for tx in unmatched:
         date_lo = tx.date - timedelta(days=1)
         date_hi = tx.date + timedelta(days=1)
@@ -1649,10 +1786,10 @@ async def _cleanup_phantom_duplicates(
                 tx.original_description or tx.description,
             ) >= 0.9:
                 await session.delete(tx)
-                deleted += 1
+                touched.add(tx.account_id)
                 break
 
-    return deleted
+    return touched
 
 
 # Finance-charge `additionalInfo` strings that Pluggy emits but which would
@@ -1888,124 +2025,13 @@ async def _sync_credit_card_bills(
     return by_external_id
 
 
-async def _pick_original_account(
-    session: AsyncSession, accounts: list[Account]
-) -> Account:
-    """Pick the original Securo account among duplicates so its UUID is preserved.
-
-    Prioritizes:
-    1. Account with a user-assigned display_name.
-    2. Account with the earliest ingested transaction (Transaction.created_at).
-    3. Account with the highest transaction count.
-    4. Deterministic fallback.
-    """
-    if len(accounts) == 1:
-        return accounts[0]
-
-    best_account = accounts[0]
-    best_score = None
-
-    for acc in accounts:
-        has_display = 1 if acc.display_name else 0
-        tx_stats = (
-            await session.execute(
-                select(
-                    func.min(Transaction.created_at),
-                    func.count(Transaction.id),
-                ).where(Transaction.account_id == acc.id)
-            )
-        ).first()
-
-        min_created = tx_stats[0] if tx_stats else None
-        tx_count = tx_stats[1] if tx_stats else 0
-        ts_val = min_created.timestamp() if min_created else float("inf")
-        score = (has_display, -ts_val, tx_count)
-
-        if best_score is None or score > best_score:
-            best_score = score
-            best_account = acc
-
-    return best_account
-
-
-async def _cleanup_duplicate_connected_accounts(
-    session: AsyncSession, connection_id: uuid.UUID
-) -> None:
-    """Consolidate duplicate accounts under a connection caused by reauthorization.
-
-    When a provider rotates account external_ids on reauth without fallback
-    matching, duplicate Account rows were created sharing the same masked_number
-    and currency. This merges them onto the oldest original account and cleans up the duplicates.
-    """
-    accounts = (
-        await session.execute(
-            select(Account)
-            .where(Account.connection_id == connection_id)
-            .order_by(Account.id)
-        )
-    ).scalars().all()
-    if len(accounts) <= 1:
-        return
-
-    # Group by (masked_number, currency)
-    by_key: dict[tuple[str, str], list[Account]] = {}
-    for acc in accounts:
-        if acc.masked_number:
-            key = (acc.masked_number, acc.currency)
-            by_key.setdefault(key, []).append(acc)
-
-    for (mask, curr), dup_list in by_key.items():
-        if len(dup_list) <= 1:
-            continue
-        primary = await _pick_original_account(session, dup_list)
-        for dup in dup_list:
-            if dup.id == primary.id:
-                continue
-            primary_txs = (
-                await session.execute(
-                    select(Transaction).where(Transaction.account_id == primary.id)
-                )
-            ).scalars().all()
-            primary_ext_ids = {t.external_id for t in primary_txs if t.external_id}
-            primary_fps = {
-                (
-                    t.date,
-                    t.amount,
-                    t.type,
-                    (t.original_description or t.description or "").strip().lower(),
-                )
-                for t in primary_txs
-            }
-
-            dup_txs = (
-                await session.execute(
-                    select(Transaction).where(Transaction.account_id == dup.id)
-                )
-            ).scalars().all()
-
-            for tx in dup_txs:
-                fp = (
-                    tx.date,
-                    tx.amount,
-                    tx.type,
-                    (tx.original_description or tx.description or "").strip().lower(),
-                )
-                if (tx.external_id and tx.external_id in primary_ext_ids) or fp in primary_fps:
-                    await session.delete(tx)
-                else:
-                    tx.account_id = primary.id
-                    if tx.external_id:
-                        primary_ext_ids.add(tx.external_id)
-                    primary_fps.add(fp)
-
-            await session.execute(
-                update(CreditCardBill)
-                .where(CreditCardBill.account_id == dup.id)
-                .values(account_id=primary.id)
-            )
-            await session.delete(dup)
-
-    await session.flush()
+# How many consecutive "provider returned no usable data" syncs a connection may
+# accumulate before it is flagged for a user-visible reconnect. EB's own FAQ
+# says its generic ASPSP error should be retried with backoff, so a single
+# failure must not flip the connection to "error" — but retrying forever would
+# hide a bank that is genuinely broken.
+SYNC_FAILURE_ESCALATION_THRESHOLD = 3
+_SYNC_FAILURE_COUNT_KEY = "sync_failures"
 
 
 async def sync_connection(
@@ -2096,14 +2122,14 @@ async def sync_connection(
             # On "failed" we read whatever cached copy the provider has —
             # better than aborting the entire sync over a transient hiccup.
 
-        # Clean up any legacy duplicate accounts left by earlier reauthorization passes
-        await _cleanup_duplicate_connected_accounts(session, connection.id)
-
         # Update accounts
         user = await session.get(User, user_id)
         user_currency = user.primary_currency if user else get_settings().default_currency
         new_tx_ids: list[uuid.UUID] = []
         merged_count = 0
+        # Consolidate rows duplicated by add-on versions 0.31.1/0.31.2 before
+        # matching incoming data, so a re-link lands on a single account.
+        await _cleanup_legacy_duplicate_accounts(session, connection)
         accounts_data = await provider.get_accounts(credentials)
         incoming_external_ids = {acc.external_id for acc in accounts_data}
         institution_cache: dict[str, Institution] = {}
@@ -2118,43 +2144,6 @@ async def sync_connection(
                 institution,
                 incoming_external_ids,
             )
-
-            if account is None:
-                # Fallback: re-link existing account whose external_id was rotated
-                # on reauth (e.g. Enable Banking session-ephemeral UIDs)
-                if acc_data.masked_number:
-                    candidates = (
-                        await session.execute(
-                            select(Account).where(
-                                Account.connection_id == connection.id,
-                                Account.masked_number == acc_data.masked_number,
-                                Account.currency == acc_data.currency,
-                            )
-                        )
-                    ).scalars().all()
-                    if len(candidates) == 1:
-                        account = candidates[0]
-                    elif len(candidates) > 1:
-                        for c in candidates:
-                            if c.type == acc_data.type:
-                                account = c
-                                break
-                        if not account:
-                            account = candidates[0]
-                elif len(accounts_data) == 1:
-                    candidates = (
-                        await session.execute(
-                            select(Account).where(
-                                Account.connection_id == connection.id,
-                                Account.currency == acc_data.currency,
-                            )
-                        )
-                    ).scalars().all()
-                    if len(candidates) == 1:
-                        account = candidates[0]
-
-                if account is not None:
-                    account.external_id = acc_data.external_id
 
             if account is not None:
                 account.user_id = user_id
@@ -2202,9 +2191,18 @@ async def sync_connection(
                 # that intermittently omits it can't blank out a known mask.
                 if acc_data.masked_number is not None:
                     account.masked_number = acc_data.masked_number
+                # Backfills existing accounts on their next sync, same rule as
+                # masked_number: provider-owned, and a payload that omits it
+                # must not blank a value that is already known.
+                if acc_data.stable_id is not None:
+                    account.stable_id = acc_data.stable_id
                 # Backfills existing accounts on next sync (issue #345).
                 if institution is not None:
                     account.institution_id = institution.id
+                    # Only when the user hasn't named the account themselves —
+                    # never overwrite a manual display_name.
+                    if account.display_name is None:
+                        account.display_name = institution.name
                 if acc_data.type == "credit_card":
                     # Preserve existing CC metadata when the provider doesn't
                     # expose it. Pluggy's creditData fields (limit, close/due
@@ -2236,7 +2234,9 @@ async def sync_connection(
                     workspace_id=workspace_id,
                     connection_id=connection.id,
                     external_id=acc_data.external_id,
+                    stable_id=acc_data.stable_id,
                     name=acc_data.name,
+                    display_name=institution.name if institution else None,
                     masked_number=acc_data.masked_number,
                     type=acc_data.type,
                     balance=acc_data.balance,
@@ -2280,7 +2280,7 @@ async def sync_connection(
             if not import_pending:
                 transactions_data = [t for t in transactions_data if t.status != "pending"]
 
-            incoming_external_ids = {txn.external_id for txn in transactions_data}
+            incoming_txn_external_ids = {txn.external_id for txn in transactions_data}
             for txn_data in transactions_data:
                 existing = await session.execute(
                     select(Transaction)
@@ -2344,7 +2344,7 @@ async def sync_connection(
                 # status, fingerprint match collapses it instead of letting
                 # both rows land.
                 synced_dup = await _find_synced_duplicate(
-                    session, account.id, txn_data, incoming_external_ids
+                    session, account.id, txn_data, incoming_txn_external_ids
                 )
                 if synced_dup:
                     if synced_dup.original_description is None:
@@ -2552,7 +2552,22 @@ async def sync_connection(
         # Clean up phantom duplicates: providers occasionally double-report the
         # same payment with different ids. Once transfer detection has paired
         # the real one, the orphan twin gets removed here.
-        await _cleanup_phantom_duplicates(session, connection.id)
+        touched_account_ids = await _cleanup_phantom_duplicates(session, connection.id)
+
+        # The opening balances above were reconciled with the phantoms still
+        # counted. Reconcile the open accounts that lost one again, so the
+        # removed amount does not stay behind in their synthetic opening
+        # transaction. Closed accounts stay out, as in the account loop.
+        if touched_account_ids:
+            await session.flush()
+            touched_accounts = await session.execute(
+                select(Account).where(
+                    Account.id.in_(touched_account_ids),
+                    Account.is_closed == False,
+                )
+            )
+            for touched_account in touched_accounts.scalars():
+                await sync_opening_balance_for_connected_account(session, touched_account)
 
         # Refresh investment holdings (brokerage, fixed income, funds,
         # etc.) when enabled for this connection. Errors here are logged but
@@ -2591,6 +2606,13 @@ async def sync_connection(
             connection.status = "error"
         else:
             connection.status = "active"
+        # A successful run clears the transient-failure streak, so an old
+        # failure can't push a now-healthy connection over the threshold.
+        if (connection.settings or {}).get(_SYNC_FAILURE_COUNT_KEY):
+            connection.settings = {
+                **(connection.settings or {}),
+                _SYNC_FAILURE_COUNT_KEY: 0,
+            }
         await session.commit()
         await session.refresh(connection)
         return connection, merged_count
@@ -2628,6 +2650,42 @@ async def sync_connection(
         # The row can vanish if the connection was deleted mid-sync. Fall back
         # to the one we already hold rather than raising: re-raising here would
         # escape as a 500, which is exactly what this handler exists to avoid.
+        refreshed = await session.get(BankConnection, connection_id)
+        return refreshed or connection, 0
+    except ProviderDataUnavailable as exc:
+        # The bank/aggregator served no usable account this run, while the
+        # consent itself may still be valid (EB keeps the session AUTHORIZED and
+        # answers ASPSP_ERROR, which its FAQ says to retry with backoff). Retry
+        # a few cycles; only once the failures persist do we send the user to a
+        # reconnect they may not need.
+        await session.rollback()
+        failures = 0
+        async with session.begin():
+            conn = await session.get(BankConnection, connection_id)
+            if conn is not None:
+                settings = dict(conn.settings or {})
+                failures = int(settings.get(_SYNC_FAILURE_COUNT_KEY) or 0) + 1
+                settings[_SYNC_FAILURE_COUNT_KEY] = failures
+                # Rebind instead of mutating in place: a JSON column only
+                # marks itself dirty on attribute reassignment.
+                conn.settings = settings
+                if failures >= SYNC_FAILURE_ESCALATION_THRESHOLD:
+                    conn.status = "error"
+                elif conn.status != "expired":
+                    conn.status = "active"
+        if failures >= SYNC_FAILURE_ESCALATION_THRESHOLD:
+            raise ProviderUserActionRequired(
+                "The bank rejected every account request for this connection "
+                f"{failures} syncs in a row. Reconnect to re-authorise.",
+                code="data_unavailable",
+            ) from exc
+        logger.warning(
+            "Provider returned no usable data for connection %s (failure %d/%d); "
+            "leaving it active so a later sync retries",
+            connection_id,
+            failures,
+            SYNC_FAILURE_ESCALATION_THRESHOLD,
+        )
         refreshed = await session.get(BankConnection, connection_id)
         return refreshed or connection, 0
     except Exception:

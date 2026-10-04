@@ -1,5 +1,41 @@
 # Changelog
 
+## 0.32.0
+
+- Sync with upstream Securo v0.16.3 (includes v0.16.2 and v0.16.3)
+- New: Recurring invoices — an agreement that emits one invoice per period, with dated price terms
+- New: Invoice instalments ("3x", "half upfront / half on delivery") as rows that settle in order
+- New: Invoice deductions — debt closed by withholding or a fee, without money arriving
+- New: Invoice product and service catalog with per-item pricing
+- New: Per-workspace timezone
+- New: Rename a bank-synced transaction from the edit dialog, with the bank's text kept underneath and a Restore original link
+- New: Kazakhstani tenge (`KZT`)
+- Fix: Default categories and groups can be deleted, relocating entries still in use
+- Fix: A refund now counts against its category's budget instead of being ignored
+- Fix: OFX import tolerates a non-standard encoding header in the SGML preamble
+- Fix: OFX import keeps every row when a bank reuses one FITID (key now includes amount and type)
+- Fix: CSV import infers the thousands separator per column instead of treating a lone comma as a decimal point
+- Fix: Enable Banking names a transaction after the counterparty when the bank sends no description, and keeps transactions carrying only a transaction date
+- Fix: Enable Banking reauthorisation no longer duplicates accounts — matches on the bank's own `identification_hash` (`accounts.stable_id`, migration `097`), with a masked-identifier fallback for rows predating the column
+- Fix: Enable Banking surfaces a bank-side `ASPSP_ERROR` as needing retry instead of reporting a successful empty sync
+- Fix: Enable Banking requests the longest window the bank serves (`strategy="longest"`), configurable via `enable_banking_history_days` (default 999), still falling back to 30 days on `WRONG_TRANSACTIONS_PERIOD`
+- Fix: Transaction fingerprints no longer include the session-scoped account UID, so a reconnect cannot re-import an account's whole history as new transactions
+- Fix: A lapsed connection is adopted on reconnect instead of leaving a second row for the same bank (only when exactly one stale connection matches, never an active one)
+- Fix: Legacy duplicate accounts created by add-on 0.31.1/0.31.2 are consolidated onto one account on the next sync
+- Fix: Dashboard and sidebar agree on account balances and ordering
+- Fix: Per-account institution hint for brokerage accounts grouped under a banking connection
+- Fix: Shared credit line counted once in the net worth tooltip
+- Fix: Editing a tracked holding no longer wipes its cost basis
+- Fix: Import history totals shown in the statement currency, not the workspace currency
+- Fix: "% of portfolio" populated for holdings in your own currency
+- Fix: A user with reconciliation history can be deleted
+- Fix: Agent chat with current Claude models (the unsupported `temperature` is no longer sent)
+- Fix: CSV import handles any currency symbol, not just `R$`, and matches the type column case-insensitively
+- Fix: Balance chart renamed to Balance Evolution to match what it plots
+- Fix: Connection status badges and labels translated across all locales
+- Database: Automatic migrations `092`–`097` for invoice schedules, catalog, instalments, workspace timezone, reconciliation FK delete actions, and `accounts.stable_id`
+- Chore: Update `uv` lockfile and backend dependencies for upstream v0.16.3
+
 ## 0.31.2
 
 - Sync with upstream Securo v0.16.1

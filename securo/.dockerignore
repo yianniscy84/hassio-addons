@@ -1,0 +1,18 @@
+# The add-on image is built from this directory, so Docker reads THIS file —
+# backend/.dockerignore only applies if you build with backend/ as the context.
+# Patterns need the **/ prefix: a bare ".venv/" only matches at the context
+# root, while the real directories are backend/.venv and frontend/node_modules.
+**/.venv/
+**/venv/
+**/__pycache__/
+**/*.py[cod]
+**/.pytest_cache/
+**/.ruff_cache/
+**/.coverage
+**/htmlcov/
+**/*.egg-info/
+**/.env
+
+# Rebuilt inside the frontend-build stage; the local copy must not leak in.
+**/node_modules/
+**/dist/

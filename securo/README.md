@@ -49,7 +49,6 @@
 | **Cache & Worker** | Ephemeral Redis cache + background Celery worker |
 | **Upstream Project** | [securo-finance/securo](https://github.com/securo-finance/securo) |
 | **Documentation** | [Full Add-on Documentation (DOCS.md)](DOCS.md) |
-| **Test Version** | [`securo-test/`](../securo-test/) |
 
 ---
 

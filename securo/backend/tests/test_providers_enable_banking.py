@@ -6,6 +6,7 @@ HTTP is mocked end-to-end via httpx.MockTransport.
 """
 from __future__ import annotations
 
+import re
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 from unittest.mock import patch
@@ -16,12 +17,15 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from jose import jwt
 
+from app.core.config import get_settings
 from app.providers.base import (
+    ProviderDataUnavailable,
     ProviderUserActionRequired,
     SessionExpiredError,
     mask_last4,
 )
 from app.providers.enable_banking import (
+    FALLBACK_HISTORY_DAYS,
     EnableBankingProvider,
     _account_identifier,
     _map_cash_account_type,
@@ -127,6 +131,19 @@ def test_txn_fingerprint_differs_on_amount_change():
     }
     other = dict(base)
     other["transaction_amount"] = {"amount": "12.35", "currency": "EUR"}
+    assert _txn_fingerprint("acc", base) != _txn_fingerprint("acc", other)
+
+
+def test_txn_fingerprint_uses_counterparty_name_when_iban_is_missing():
+    base = {
+        "entry_reference": "0",
+        "transaction_amount": {"amount": "12.34", "currency": "EUR"},
+        "credit_debit_indicator": "DBIT",
+        "booking_date": "2026-05-20",
+        "remittance_information": [],
+        "creditor": {"name": "Coffee Shop"},
+    }
+    other = {**base, "creditor": {"name": "Bakery"}}
     assert _txn_fingerprint("acc", base) != _txn_fingerprint("acc", other)
 
 
@@ -418,6 +435,136 @@ async def test_get_transactions_stops_on_repeated_continuation_key(eb_keys, capl
     assert "pagination loop detected" in caplog.text
 
 
+_WRONG_PERIOD_BODY = {
+    "code": 422,
+    "message": "Wrong transactions period requested",
+    "detail": {"message": "Requested time period out of bound."},
+    "error": "WRONG_TRANSACTIONS_PERIOD",
+}
+_CREDENTIALS = {"session_id": "sess-x", "valid_until": "2099-01-01T00:00:00Z"}
+
+
+def _span_days(request: httpx.Request) -> int:
+    """Inclusive number of days covered by a transactions request."""
+    start = date.fromisoformat(request.url.params["date_from"])
+    end = date.fromisoformat(request.url.params["date_to"])
+    return (end - start).days + 1
+
+
+@pytest.mark.asyncio
+async def test_get_transactions_default_window_follows_configured_history_days(eb_keys):
+    """The add-on requests ENABLE_BANKING_HISTORY_DAYS (999), not upstream's 90.
+
+    DEFAULT_HISTORY_DAYS stays as the shipped default for the constant's sake;
+    the effective window comes from the setting so operators can trade bank
+    rejections against history depth.
+    """
+    provider = EnableBankingProvider()
+    requests: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return httpx.Response(200, json={"transactions": []})
+
+    with _patch_client(provider, handler):
+        await provider.get_transactions(_CREDENTIALS, "acc-1")
+
+    assert len(requests) == 1
+    assert requests[0].url.params["date_to"] == date.today().isoformat()
+    assert _span_days(requests[0]) == get_settings().enable_banking_history_days
+    # An over-long window is narrowed by the bank rather than rejected.
+    assert requests[0].url.params["strategy"] == "longest"
+
+
+@pytest.mark.asyncio
+async def test_get_transactions_explicit_since_never_sends_strategy(eb_keys):
+    """An explicit `since` is the caller's choice; never widen or shorten it."""
+    provider = EnableBankingProvider()
+    requests: list[httpx.Request] = []
+    since = date.today() - timedelta(days=10)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return httpx.Response(200, json={"transactions": []})
+
+    with _patch_client(provider, handler):
+        await provider.get_transactions(_CREDENTIALS, "acc-1", since)
+
+    assert len(requests) == 1
+    assert "strategy" not in requests[0].url.params
+    assert _span_days(requests[0]) == 11
+
+
+@pytest.mark.asyncio
+async def test_get_transactions_retries_shorter_window_on_wrong_period(eb_keys):
+    provider = EnableBankingProvider()
+    requests: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        if _span_days(request) > FALLBACK_HISTORY_DAYS:
+            return httpx.Response(422, json=_WRONG_PERIOD_BODY)
+        return httpx.Response(
+            200,
+            json={
+                "transactions": [
+                    {
+                        "entry_reference": "tx-1",
+                        "status": "BOOK",
+                        "transaction_amount": {"amount": "5.00", "currency": "EUR"},
+                        "credit_debit_indicator": "DBIT",
+                        "booking_date": date.today().isoformat(),
+                    }
+                ]
+            },
+        )
+
+    with _patch_client(provider, handler):
+        transactions = await provider.get_transactions(_CREDENTIALS, "acc-1")
+
+    assert [_span_days(r) for r in requests] == [
+        get_settings().enable_banking_history_days,
+        FALLBACK_HISTORY_DAYS,
+    ]
+    # The retry is a plain bounded window: no strategy, so a bank that caps the
+    # range gets exactly the fallback and nothing more.
+    assert "strategy" not in requests[1].url.params
+    assert [t.external_id for t in transactions] == ["tx-1"]
+
+
+@pytest.mark.asyncio
+async def test_get_transactions_wrong_period_with_explicit_since_raises(eb_keys):
+    """An explicit ``since`` is the caller's choice; never silently shorten it."""
+    provider = EnableBankingProvider()
+    requests: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return httpx.Response(422, json=_WRONG_PERIOD_BODY)
+
+    with _patch_client(provider, handler), pytest.raises(httpx.HTTPStatusError):
+        await provider.get_transactions(
+            _CREDENTIALS, "acc-1", date.today() - timedelta(days=200)
+        )
+
+    assert len(requests) == 1
+
+
+@pytest.mark.asyncio
+async def test_get_transactions_other_422_is_not_retried(eb_keys):
+    provider = EnableBankingProvider()
+    requests: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return httpx.Response(422, json={"code": 422, "error": "SOMETHING_ELSE"})
+
+    with _patch_client(provider, handler), pytest.raises(httpx.HTTPStatusError):
+        await provider.get_transactions(_CREDENTIALS, "acc-1")
+
+    assert len(requests) == 1
+
+
 @pytest.mark.asyncio
 async def test_refresh_credentials_expired_raises(eb_keys):
     provider = EnableBankingProvider()
@@ -437,6 +584,135 @@ async def test_refresh_credentials_valid_passes(eb_keys):
     creds = {"valid_until": future, "session_id_enc": "enc"}
     out = await provider.refresh_credentials(creds)
     assert out is creds
+
+@pytest.mark.asyncio
+async def test_get_accounts_raises_data_unavailable_when_every_account_fails(eb_keys):
+    """EB lists accounts but every /details call 400s with ASPSP_ERROR.
+
+    EB's FAQ classifies ASPSP_ERROR as a bank-side failure and says to retry
+    with backoff — it does not mean the consent died. What must NOT happen is
+    returning an empty list: sync would store nothing and leave the connection
+    "active", a silent false success. The provider surfaces the failure, and
+    the retry-vs-escalate decision belongs to the sync layer.
+    """
+    provider = EnableBankingProvider()
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/sessions/sess-x":
+            return httpx.Response(200, json={
+                "session_id": "sess-x",
+                "accounts_data": [{"uid": "acc-1"}, {"uid": "acc-2"}],
+            })
+        if re.fullmatch(r"/accounts/[^/]+/details", request.url.path):
+            return httpx.Response(400, json={
+                "code": 400,
+                "message": "Error interacting with ASPSP",
+                "detail": {
+                    "message": "Unauthorized, authentication failure",
+                    "error_name": "HttpException",
+                    "error_data": {},
+                },
+                "error": "ASPSP_ERROR",
+            })
+        raise AssertionError(f"unexpected path {request.url.path}")
+
+    with _patch_client(provider, handler):
+        with pytest.raises(ProviderDataUnavailable):
+            await provider.get_accounts(_CREDENTIALS)
+
+
+@pytest.mark.asyncio
+async def test_get_accounts_returns_empty_when_session_reports_no_accounts(eb_keys):
+    """A session with no linked accounts is a legitimate empty result."""
+    provider = EnableBankingProvider()
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/sessions/sess-x":
+            return httpx.Response(200, json={"session_id": "sess-x", "accounts_data": []})
+        raise AssertionError(f"unexpected path {request.url.path}")
+
+    with _patch_client(provider, handler):
+        assert await provider.get_accounts(_CREDENTIALS) == []
+
+
+@pytest.mark.asyncio
+async def test_get_accounts_keeps_working_accounts_when_one_fails(eb_keys):
+    """One failing account must not discard the accounts that did resolve."""
+    provider = EnableBankingProvider()
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        path = request.url.path
+        if path == "/sessions/sess-x":
+            return httpx.Response(200, json={
+                "session_id": "sess-x",
+                "accounts_data": [{"uid": "acc-1"}, {"uid": "acc-2"}],
+            })
+        if path == "/accounts/acc-2/details":
+            return httpx.Response(200, json={
+                "uid": "acc-2",
+                "display_name": "Good account",
+                "currency": "EUR",
+                "cash_account_type": "CACC",
+            })
+        if path == "/accounts/acc-2/balances":
+            return httpx.Response(200, json={"balances": []})
+        if re.fullmatch(r"/accounts/[^/]+/details", path):
+            return httpx.Response(400, json={
+                "code": 400,
+                "message": "Error interacting with ASPSP",
+                "error": "ASPSP_ERROR",
+                "detail": None,
+            })
+        raise AssertionError(f"unexpected path {path}")
+
+    with _patch_client(provider, handler):
+        accounts = await provider.get_accounts(_CREDENTIALS)
+
+    assert [a.external_id for a in accounts] == ["acc-2"]
+
+
+@pytest.mark.asyncio
+async def test_get_accounts_exposes_stable_identification_hash(eb_keys):
+    """EB's `uid` is session-scoped; `identification_hash` is the stable key.
+
+    Reauthorising mints a new session, so the same real account comes back with
+    a new uid. The hash is what survives that, and it already rides in the
+    /sessions payload this method fetches — carry it out on AccountData so the
+    sync can re-match the existing row instead of creating a duplicate.
+    """
+    provider = EnableBankingProvider()
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        path = request.url.path
+        if path == "/sessions/sess-x":
+            return httpx.Response(200, json={
+                "session_id": "sess-x",
+                "accounts_data": [
+                    {
+                        "uid": "acc-1",
+                        "identification_hash": "hash-1",
+                        "identification_hashes": ["hash-1"],
+                    },
+                ],
+            })
+        if path == "/accounts/acc-1/details":
+            return httpx.Response(200, json={
+                "uid": "acc-1",
+                "display_name": "Main",
+                "currency": "EUR",
+                "cash_account_type": "CACC",
+            })
+        if path == "/accounts/acc-1/balances":
+            return httpx.Response(200, json={"balances": []})
+        raise AssertionError(f"unexpected path {path}")
+
+    with _patch_client(provider, handler):
+        accounts = await provider.get_accounts(_CREDENTIALS)
+
+    assert len(accounts) == 1
+    assert accounts[0].external_id == "acc-1"
+    assert accounts[0].stable_id == "hash-1"
+
 
 
 # ----- account identifier / masking (issue #408) -----
@@ -489,38 +765,194 @@ def test_mask_last4_handles_exactly_four():
     assert mask_last4("1234") == "1234"
 
 
-def test_txn_fingerprint_invariant_to_session_uid_rotation():
-    """Enable Banking rotates account UIDs on every reauth session.
-    Transaction fingerprints must be stable across different session UIDs
-    so identical booked transactions don't duplicate on reauthorization."""
-    raw = {
-        "transaction_amount": {"amount": "45.00", "currency": "EUR"},
-        "credit_debit_indicator": "DBIT",
-        "booking_date": "2026-06-01",
-        "value_date": "2026-06-01",
-        "remittance_information": ["Supermarket Groceries"],
-        "creditor_account": {"iban": "NL88RABO0123456789"},
-    }
-    fp_session_1 = _txn_fingerprint("ephemeral-uid-session-1", raw)
-    fp_session_2 = _txn_fingerprint("ephemeral-uid-session-2", raw)
-    assert fp_session_1 == fp_session_2
+# ----- counterparty fallback / transaction_date (issue #734, #753) -----
 
 
-@pytest.mark.asyncio
-async def test_get_transactions_passes_strategy_longest_and_configured_history(eb_keys):
-    """When since is None, get_transactions uses strategy=longest and 999 days history."""
+def test_build_transaction_description_falls_back_to_creditor_for_debit():
     provider = EnableBankingProvider()
-    captured_params: dict = {}
+    raw = {
+        "transaction_amount": {"amount": "12.34", "currency": "EUR"},
+        "credit_debit_indicator": "DBIT",
+        "booking_date": "2026-08-20",
+        "remittance_information": [],
+        "creditor": {"name": "Example Merchant"},
+    }
+    tx = provider._build_transaction("acc-1", raw, "posted", "auto")
+    assert tx is not None
+    assert tx.description == "Example Merchant"
 
-    def handler(request: httpx.Request) -> httpx.Response:
-        captured_params.update(dict(request.url.params))
-        return httpx.Response(200, json={"transactions": []})
 
-    credentials = {"session_id_enc": None, "session_id": "sess-test", "valid_until": "2099-01-01T00:00:00Z"}
-    with _patch_client(provider, handler):
-        await provider.get_transactions(credentials, "acc-uid-1", since=None)
+def test_build_transaction_description_falls_back_to_debtor_for_credit():
+    provider = EnableBankingProvider()
+    raw = {
+        "transaction_amount": {"amount": "100.00", "currency": "EUR"},
+        "credit_debit_indicator": "CRDT",
+        "booking_date": "2026-08-20",
+        "remittance_information": [],
+        "debtor": {"name": "Employer Inc"},
+    }
+    tx = provider._build_transaction("acc-1", raw, "posted", "auto")
+    assert tx is not None
+    assert tx.description == "Employer Inc"
 
-    assert captured_params.get("strategy") == "longest"
-    # Check that date_from is roughly 999 days ago (within 2 days tolerance)
-    expected_start = (date.today() - timedelta(days=999)).isoformat()
-    assert captured_params.get("date_from") == expected_start
+
+def test_build_transaction_description_prefers_remittance_over_counterparty():
+    provider = EnableBankingProvider()
+    raw = {
+        "transaction_amount": {"amount": "15.00", "currency": "EUR"},
+        "credit_debit_indicator": "DBIT",
+        "booking_date": "2026-08-20",
+        "remittance_information": ["Order #12345"],
+        "creditor": {"name": "Example Merchant"},
+    }
+    tx = provider._build_transaction("acc-1", raw, "posted", "auto")
+    assert tx is not None
+    assert tx.description == "Order #12345"
+
+
+def test_build_transaction_description_prefers_additional_information_over_counterparty():
+    provider = EnableBankingProvider()
+    raw = {
+        "transaction_amount": {"amount": "15.00", "currency": "EUR"},
+        "credit_debit_indicator": "DBIT",
+        "booking_date": "2026-08-20",
+        "remittance_information": [],
+        "additional_information": "Invoice 987",
+        "creditor": {"name": "Example Merchant"},
+    }
+    tx = provider._build_transaction("acc-1", raw, "posted", "auto")
+    assert tx is not None
+    assert tx.description == "Invoice 987"
+
+
+def test_build_transaction_description_whitespace_additional_information_falls_back():
+    provider = EnableBankingProvider()
+    raw = {
+        "transaction_amount": {"amount": "15.00", "currency": "EUR"},
+        "credit_debit_indicator": "DBIT",
+        "booking_date": "2026-08-20",
+        "remittance_information": [],
+        "additional_information": "   ",
+        "creditor": {"name": "Example Merchant"},
+    }
+    tx = provider._build_transaction("acc-1", raw, "posted", "auto")
+    assert tx is not None
+    assert tx.description == "Example Merchant"
+
+
+def test_build_transaction_description_falls_back_to_generic_transaction():
+    provider = EnableBankingProvider()
+    raw = {
+        "transaction_amount": {"amount": "15.00", "currency": "EUR"},
+        "credit_debit_indicator": "DBIT",
+        "booking_date": "2026-08-20",
+    }
+    tx = provider._build_transaction("acc-1", raw, "posted", "auto")
+    assert tx is not None
+    assert tx.description == "Transaction"
+
+
+def test_build_transaction_falls_back_to_transaction_date():
+    provider = EnableBankingProvider()
+    raw = {
+        "transaction_amount": {"amount": "20.00", "currency": "EUR"},
+        "credit_debit_indicator": "DBIT",
+        "transaction_date": "2026-08-29",
+        "creditor": {"name": "Coffee Shop"},
+    }
+    tx = provider._build_transaction("acc-1", raw, "pending", "auto")
+    assert tx is not None
+    assert tx.date == date(2026, 8, 29)
+    assert tx.description == "Coffee Shop"
+
+
+def test_build_transaction_ignores_non_string_transaction_date():
+    provider = EnableBankingProvider()
+    raw = {
+        "transaction_amount": {"amount": "20.00", "currency": "EUR"},
+        "credit_debit_indicator": "DBIT",
+        "transaction_date": 20260829,
+        "creditor": {"name": "Coffee Shop"},
+    }
+    assert provider._build_transaction("acc-1", raw, "pending", "auto") is None
+
+
+def test_build_transaction_treats_entry_reference_zero_as_missing():
+    provider = EnableBankingProvider()
+    raw1 = {
+        "entry_reference": "0",
+        "transaction_amount": {"amount": "20.00", "currency": "EUR"},
+        "credit_debit_indicator": "DBIT",
+        "transaction_date": "2026-08-29",
+        "creditor": {"name": "Coffee Shop"},
+    }
+    raw2 = {
+        "entry_reference": "0",
+        "transaction_amount": {"amount": "40.00", "currency": "EUR"},
+        "credit_debit_indicator": "DBIT",
+        "transaction_date": "2026-08-29",
+        "creditor": {"name": "Bakery"},
+    }
+    tx1 = provider._build_transaction("acc-1", raw1, "pending", "auto")
+    tx2 = provider._build_transaction("acc-1", raw2, "pending", "auto")
+    assert tx1 is not None and tx2 is not None
+    assert tx1.external_id != "0"
+    assert tx2.external_id != "0"
+    assert tx1.external_id != tx2.external_id
+
+
+def test_txn_fingerprint_ignores_session_account_uid():
+    """Reauthorization mints a new EB session and a new account uid.
+
+    The same booked transaction must keep its fingerprint across that change,
+    or every synced transaction is re-inserted under a new external_id on
+    reconnect — a full duplicate of the account's history. The counterparty
+    IBANs keep the hash account-specific without pinning it to the session.
+    """
+    raw = {
+        "booking_date": "2026-09-01",
+        "value_date": "2026-09-01",
+        "transaction_amount": {"amount": "12.50", "currency": "EUR"},
+        "credit_debit_indicator": "DBIT",
+        "remittance_information": ["Coffee"],
+        "creditor_account": {"iban": "DE89370400440532013000"},
+    }
+    assert _txn_fingerprint("uid-session-1", raw) == _txn_fingerprint(
+        "uid-session-2", dict(raw)
+    )
+
+
+def test_txn_fingerprint_differs_across_accounts_with_distinct_counterparties():
+    """Dropping account_uid must not collapse two different real accounts.
+
+    Two accounts holding the identical transaction at the same price are
+    still distinguishable by the counterparty the bank reported.
+    """
+    base = {
+        "booking_date": "2026-09-01",
+        "value_date": "2026-09-01",
+        "transaction_amount": {"amount": "12.50", "currency": "EUR"},
+        "credit_debit_indicator": "DBIT",
+        "remittance_information": ["Coffee"],
+    }
+    one = dict(base, creditor_account={"iban": "DE11111111111111111111"})
+    two = dict(base, creditor_account={"iban": "DE22222222222222222222"})
+    assert _txn_fingerprint("acc", one) != _txn_fingerprint("acc", two)
+
+
+def test_txn_fingerprint_includes_transaction_date():
+    raw1 = {
+        "transaction_amount": {"amount": "20.00", "currency": "EUR"},
+        "credit_debit_indicator": "DBIT",
+        "transaction_date": "2026-08-29",
+    }
+    raw2 = {
+        "transaction_amount": {"amount": "20.00", "currency": "EUR"},
+        "credit_debit_indicator": "DBIT",
+        "transaction_date": "2026-08-30",
+    }
+    fp1 = _txn_fingerprint("acc-1", raw1)
+    fp2 = _txn_fingerprint("acc-1", raw2)
+    assert fp1 != fp2
+
+

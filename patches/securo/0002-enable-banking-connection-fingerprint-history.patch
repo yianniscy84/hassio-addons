@@ -1,0 +1,734 @@
+From: Home Assistant Securo Add-on <noreply@home-assistant.io>
+Date: Sat, 4 Oct 2026 12:00:00 +0000
+Subject: [PATCH] fix(enable-banking): stable fingerprints, duplicate-connection
+ adoption, and configurable history window
+
+Four fixes layered on top of upstream v0.16.3 + PR #1074 (stable_id).
+None is upstream behaviour, so they are carried as an add-on patch.
+
+1. _txn_fingerprint excludes the session-scoped account_uid. Enable
+   Banking mints a new uid per session, so a reauthorization re-keyed
+   every transaction into a new external_id and re-imported the whole
+   history. #1074 fixes the account row; this fixes its transactions.
+
+2. Duplicate-connection adoption in handle_oauth_callback. A user whose
+   consent lapses is routed through Unlink / Connect Bank, so the
+   callback arrives with no reconnect_id and a second BankConnection
+   row for the same bank. Adopt the stale one, but only when exactly
+   one matches and it is not active.
+
+3. enable_banking_history_days (default 999) with strategy="longest".
+   Coupled: dropping strategy while keeping 999 makes banks reject the
+   window and fall back to FALLBACK_HISTORY_DAYS (30), which is worse
+   than upstream's 90.
+
+4. _cleanup_legacy_duplicate_accounts consolidates rows duplicated by
+   add-on 0.31.1/0.31.2, which matched on masked_number + currency.
+   One-off repair; safe to drop once no install carries those rows.
+
+Reported upstream as issue #1013.
+---
+diff --git a/backend/app/core/config.py b/backend/app/core/config.py
+index 1d4c7c0..b874b2d 100644
+--- a/backend/app/core/config.py
++++ b/backend/app/core/config.py
+@@ -43,6 +43,10 @@ class Settings(BaseSettings):
+     enable_banking_private_key_file: str = ""  # path to PEM file; takes precedence
+     enable_banking_api_url: str = "https://api.enablebanking.com"
+     enable_banking_oauth_redirect_uri: str = ""  # empty derives from FRONTEND_URL
++    # Add-on option (ENABLE_BANKING_HISTORY_DAYS): how many days of history to
++    # request on a fresh connection. EB caps this per bank, so oversized windows
++    # are retried with FALLBACK_HISTORY_DAYS on WRONG_TRANSACTIONS_PERIOD.
++    enable_banking_history_days: int = 999
+ 
+     # SimpleFIN Bridge (US/intl banks, paste-a-token flow). Off by default.
+     # The bridge URL defaults to the beta/sandbox host so users can test with
+diff --git a/backend/app/providers/enable_banking.py b/backend/app/providers/enable_banking.py
+index 8e6045e..7a3c2e8 100644
+--- a/backend/app/providers/enable_banking.py
++++ b/backend/app/providers/enable_banking.py
+@@ -151,6 +151,10 @@ def _txn_fingerprint(account_uid: str, raw: dict) -> str:
+ 
+     EB's `entry_reference` is unreliable across providers, so we hash the
+     fields most likely to persist across re-fetches of the same booked txn.
++    Account UIDs in Enable Banking are ephemeral per-session tokens, so we
++    deliberately exclude account_uid from the hash so transactions maintain
++    identical fingerprints across reauthorization sessions. The counterparty
++    IBANs below keep the hash account-specific instead of session-specific.
+     Pending → booked transitions deliberately produce a different id; the
+     sync layer's pending↔posted twin matcher handles that.
+     """
+@@ -170,7 +174,6 @@ def _txn_fingerprint(account_uid: str, raw: dict) -> str:
+     creditor_identity = creditor_iban.strip() or _counterparty_name(raw, "creditor")
+     debtor_identity = debtor_iban.strip() or _counterparty_name(raw, "debtor")
+     parts = [
+-        str(account_uid),
+         str(raw.get("booking_date") or ""),
+         str(raw.get("value_date") or ""),
+         str(raw.get("transaction_date") or ""),
+@@ -622,14 +625,22 @@ class EnableBankingProvider(BankProvider):
+         today = datetime.now(timezone.utc).date()
+         if since is not None:
+             return await self._fetch_transactions(
+-                account_external_id, since, today, payee_source
++                account_external_id, since, today, payee_source, longest=False
+             )
++        # ENABLE_BANKING_HISTORY_DAYS is an add-on option (default 999) because
++        # many banks expose far more history than the 90 days upstream defaults
++        # to. `strategy="longest"` asks EB for the widest window the bank will
++        # actually serve, so an over-long request is narrowed by the bank
++        # instead of rejected outright. The WRONG_TRANSACTIONS_PERIOD retry
++        # below still covers banks that reject even that.
++        history_days = max(1, get_settings().enable_banking_history_days)
+         try:
+             return await self._fetch_transactions(
+                 account_external_id,
+-                _history_start(today, DEFAULT_HISTORY_DAYS),
++                _history_start(today, history_days),
+                 today,
+                 payee_source,
++                longest=True,
+             )
+         except httpx.HTTPStatusError as exc:
+             if not _is_wrong_period_error(exc.response):
+@@ -637,7 +648,7 @@ class EnableBankingProvider(BankProvider):
+             logger.warning(
+                 "Enable Banking rejected a %d-day history window for account %s; "
+                 "retrying with %d days",
+-                DEFAULT_HISTORY_DAYS,
++                history_days,
+                 account_external_id,
+                 FALLBACK_HISTORY_DAYS,
+             )
+@@ -646,6 +657,7 @@ class EnableBankingProvider(BankProvider):
+                 _history_start(today, FALLBACK_HISTORY_DAYS),
+                 today,
+                 payee_source,
++                longest=False,
+             )
+ 
+     async def _fetch_transactions(
+@@ -654,6 +666,7 @@ class EnableBankingProvider(BankProvider):
+         start: date,
+         end: date,
+         payee_source: str,
++        longest: bool = False,
+     ) -> list[TransactionData]:
+         date_from = start.isoformat()
+         date_to = end.isoformat()
+@@ -663,6 +676,8 @@ class EnableBankingProvider(BankProvider):
+         seen_transaction_ids: set[str] = set()
+         for _ in range(TRANSACTION_PAGE_LIMIT):
+             params: dict[str, Any] = {"date_from": date_from, "date_to": date_to}
++            if longest:
++                params["strategy"] = "longest"
+             if continuation_key:
+                 params["continuation_key"] = continuation_key
+             page = await self._request(
+diff --git a/backend/app/services/connection_service.py b/backend/app/services/connection_service.py
+index 501cc2c..f1a66c1 100644
+--- a/backend/app/services/connection_service.py
++++ b/backend/app/services/connection_service.py
+@@ -1080,6 +1080,39 @@ async def handle_oauth_callback(
+         await session.refresh(existing_reconnect)
+         return existing_reconnect
+ 
++    if connection_data.institution_name:
++        # A user whose consent simply expired reaches this point without a
++        # reconnect_id: the UI sends them through Unlink / Connect Bank. Adopt
++        # the stale connection for the same institution instead of creating a
++        # second one, so its accounts, rules and history stay attached to a
++        # single row. Case-insensitive, and only when exactly one stale
++        # connection matches — if several do, creating a new one is safer than
++        # guessing which is the user's real bank.
++        candidates = (
++            await session.execute(
++                select(BankConnection).where(
++                    BankConnection.workspace_id == workspace_id,
++                    BankConnection.provider == provider_name,
++                    func.lower(BankConnection.institution_name)
++                    == connection_data.institution_name.lower(),
++                    BankConnection.status != "active",
++                )
++            )
++        ).scalars().all()
++        if len(candidates) == 1:
++            candidate = candidates[0]
++            candidate.external_id = connection_data.external_id
++            candidate.logo_url = (
++                _clean_logo_url(connection_data.logo_url) or candidate.logo_url
++            )
++            candidate.credentials = connection_data.credentials
++            candidate.status = "active"
++            # Re-sync from current data on the next sync cycle.
++            candidate.last_sync_at = None
++            await session.commit()
++            await session.refresh(candidate)
++            return candidate
++
+     flow_params = dict(state_payload.get("flow_params") or {})
+     flow_sync_assets = flow_params.pop("sync_assets", None)
+     initial_settings: dict[str, object] = {"flow_params": flow_params}
+@@ -1306,6 +1339,81 @@ def _normalized_account_name(name: str | None) -> str:
+     return " ".join((name or "").casefold().split())
+ 
+ 
++async def _cleanup_legacy_duplicate_accounts(
++    session: AsyncSession,
++    connection: BankConnection,
++) -> None:
++    """Consolidate duplicate accounts left behind by addon versions 0.31.1/0.31.2.
++
++    Those releases shipped a reauth fix that matched on masked_number +
++    currency, which still let a reauthorization insert a second row when the
++    bank also rotated the account type. `_find_existing_connected_account`
++    now keys on `stable_id` (migration 097) and prevents new duplicates, but
++    rows already duplicated in the database need consolidating once.
++
++    The survivor is picked deterministically by id so repeated syncs never
++    oscillate between rows, and it keeps its UUID, so rules, transactions and
++    opening balances stay attached to the account the user knows. Only
++    genuinely same-identity rows are merged: equal currency, equal masked
++    suffix and — once 097 has backfilled — an equal non-null stable_id.
++    """
++    accounts = list(
++        (
++            await session.execute(
++                select(Account).where(Account.connection_id == connection.id)
++            )
++        ).scalars().all()
++    )
++    by_identity: dict[tuple[str, str, str], list[Account]] = {}
++    for account in accounts:
++        if not account.masked_number or not account.currency:
++            continue
++        key = (account.currency, account.masked_number, account.stable_id or "")
++        by_identity.setdefault(key, []).append(account)
++
++    for group in by_identity.values():
++        if len(group) < 2:
++            continue
++        # Deterministic order so the same row survives every run. `accounts`
++        # carries no created_at, so fall back to the primary key: it is
++        # uuid4, hence not chronological, but it is stable, which is what
++        # matters — the survivor must not change between syncs.
++        group.sort(key=lambda a: str(a.id))
++        primary, duplicates = group[0], group[1:]
++        primary_ext_ids = {primary.external_id} if primary.external_id else set()
++        primary_fps = {
++            (t.external_id, t.amount, t.date, t.type, t.description)
++            for t in (await session.execute(
++                select(Transaction).where(Transaction.account_id == primary.id)
++            )).scalars().all()
++        }
++        for dup in duplicates:
++            dup_txs = list(
++                (
++                    await session.execute(
++                        select(Transaction).where(Transaction.account_id == dup.id)
++                    )
++                ).scalars().all()
++            )
++            for tx in dup_txs:
++                fp = (tx.external_id, tx.amount, tx.date, tx.type, tx.description)
++                if (tx.external_id and tx.external_id in primary_ext_ids) or fp in primary_fps:
++                    await session.delete(tx)
++                else:
++                    tx.account_id = primary.id
++                    if tx.external_id:
++                        primary_ext_ids.add(tx.external_id)
++                    primary_fps.add(fp)
++            await session.execute(
++                update(CreditCardBill)
++                .where(CreditCardBill.account_id == dup.id)
++                .values(account_id=primary.id)
++            )
++            await session.delete(dup)
++
++    await session.flush()
++
++
+ async def _find_existing_connected_account(
+     session: AsyncSession,
+     connection: BankConnection,
+@@ -2019,6 +2127,9 @@ async def sync_connection(
+         user_currency = user.primary_currency if user else get_settings().default_currency
+         new_tx_ids: list[uuid.UUID] = []
+         merged_count = 0
++        # Consolidate rows duplicated by add-on versions 0.31.1/0.31.2 before
++        # matching incoming data, so a re-link lands on a single account.
++        await _cleanup_legacy_duplicate_accounts(session, connection)
+         accounts_data = await provider.get_accounts(credentials)
+         incoming_external_ids = {acc.external_id for acc in accounts_data}
+         institution_cache: dict[str, Institution] = {}
+diff --git a/backend/pyproject.toml b/backend/pyproject.toml
+index 58099ce..b4bf3dd 100644
+--- a/backend/pyproject.toml
++++ b/backend/pyproject.toml
+@@ -40,12 +40,11 @@ dependencies = [
+     # legacy ZipCrypto scheme and cannot write an encrypted archive at all,
+     # so AES-256 zips need this fork of it.
+     "pyzipper>=0.4.0",
+-    # Bundled multilingual embedder — only imported on demand by the
+-    # agents knowledge-base path. ONNX runtime, ~120 MB model downloaded
+-    # on first use to /app/data/embedding_models. Users not on the
+-    # agents feature pay zero cost (the package is installed but never
+-    # imported).
+-    "fastembed>=0.4.0",
++    # fastembed / onnxruntime intentionally excluded on the Alpine add-on
++    # build: onnxruntime publishes no musllinux wheel, so it cannot be
++    # installed against musl libc. Native embeddings are unavailable there;
++    # when agents/MCP are enabled, use ollama/openai/openai_compatible for
++    # AGENTS_EMBEDDING_PROVIDER.
+     # Resolve the host's IANA timezone when no app setting or TZ override exists.
+     "tzlocal>=5.0.0",
+ ]
+diff --git a/backend/tests/test_connection_service.py b/backend/tests/test_connection_service.py
+index e370d07..678a868 100644
+--- a/backend/tests/test_connection_service.py
++++ b/backend/tests/test_connection_service.py
+@@ -27,6 +27,7 @@ from app.providers.base import (
+ )
+ from app.services.text_similarity import token_overlap
+ from app.services.connection_service import (
++    _cleanup_legacy_duplicate_accounts,
+     _find_existing_connected_account,
+     _merge_sync_metadata,
+     _match_pluggy_category,
+@@ -479,6 +480,311 @@ async def test_token_reconnect_updates_existing_connection_without_deleting_acco
+     mock_provider.handle_oauth_callback.assert_awaited_once_with("fresh-setup-token")
+ 
+ 
++@pytest.mark.asyncio
++async def test_expired_consent_adopts_stale_connection_for_same_institution(
++    session: AsyncSession, test_user, test_workspace
++):
++    """Reconnecting after an expiry without a reconnect_id must not add a row.
++
++    A user whose Enable Banking consent simply lapses is sent through
++    Unlink / Connect Bank rather than a Reconnect button, so the callback
++    arrives with no reconnect_connection_id. Matching on the institution
++    adopts the stale connection instead of leaving the workspace with two
++    rows for the same bank, splitting its accounts across them.
++    """
++    existing = await _make_connection(session, test_user.id, "seb")
++    existing.provider = "enable_banking"
++    existing.institution_name = "SEB"
++    existing.status = "error"
++    existing.last_sync_at = datetime(2026, 1, 1, tzinfo=timezone.utc)
++    await session.commit()
++
++    mock_provider = AsyncMock()
++    mock_provider.handle_oauth_callback = AsyncMock(return_value=ConnectionData(
++        external_id="new-eb-conn",
++        institution_name="SEB",
++        credentials={"access_url_enc": "new-encrypted-url"},
++        accounts=[],
++    ))
++
++    with patch("app.services.connection_service.get_provider", return_value=mock_provider):
++        adopted = await handle_oauth_callback(
++            session,
++            test_workspace.id,
++            test_user.id,
++            "fresh-setup-token",
++            provider_name="enable_banking",
++        )
++
++    assert adopted.id == existing.id
++    assert adopted.external_id == "new-eb-conn"
++    assert adopted.status == "active"
++    assert adopted.last_sync_at is None
++    matching = (
++        await session.execute(
++            select(BankConnection).where(BankConnection.workspace_id == test_workspace.id)
++        )
++    ).scalars().all()
++    assert len(matching) == 1
++
++
++@pytest.mark.asyncio
++async def test_institution_match_is_case_insensitive(
++    session: AsyncSession, test_user, test_workspace
++):
++    """Banks are not consistent about capitalisation of their own name."""
++    existing = await _make_connection(session, test_user.id, "seb")
++    existing.provider = "enable_banking"
++    existing.institution_name = "Société Générale"
++    existing.status = "error"
++    await session.commit()
++
++    mock_provider = AsyncMock()
++    mock_provider.handle_oauth_callback = AsyncMock(return_value=ConnectionData(
++        external_id="new-eb-conn",
++        institution_name="SOCIÉTÉ GÉNÉRALE",
++        credentials={"access_url_enc": "new-encrypted-url"},
++        accounts=[],
++    ))
++
++    with patch("app.services.connection_service.get_provider", return_value=mock_provider):
++        adopted = await handle_oauth_callback(
++            session,
++            test_workspace.id,
++            test_user.id,
++            "fresh-setup-token",
++            provider_name="enable_banking",
++        )
++
++    assert adopted.id == existing.id
++
++
++@pytest.mark.asyncio
++async def test_active_connection_is_never_adopted(
++    session: AsyncSession, test_user, test_workspace
++):
++    """Adoption is for lapsed connections only.
++
++    An active connection for the same institution is the user's live link;
++    hijacking it would silently rebind a working session to a new one.
++    """
++    existing = await _make_connection(session, test_user.id, "seb")
++    existing.provider = "enable_banking"
++    existing.institution_name = "SEB"
++    existing.status = "active"
++    await session.commit()
++
++    mock_provider = AsyncMock()
++    mock_provider.handle_oauth_callback = AsyncMock(return_value=ConnectionData(
++        external_id="new-eb-conn",
++        institution_name="SEB",
++        credentials={"access_url_enc": "new-encrypted-url"},
++        accounts=[],
++    ))
++
++    with patch("app.services.connection_service.get_provider", return_value=mock_provider):
++        created = await handle_oauth_callback(
++            session,
++            test_workspace.id,
++            test_user.id,
++            "fresh-setup-token",
++            provider_name="enable_banking",
++        )
++
++    assert created.id != existing.id
++
++
++@pytest.mark.asyncio
++async def test_ambiguous_stale_connections_are_not_adopted(
++    session: AsyncSession, test_user, test_workspace
++):
++    """Two stale rows for one institution mean we cannot tell which is real.
++
++    Picking one would attach the new session to an arbitrary connection, so
++    creating a fresh connection is the safer failure.
++    """
++    first = await _make_connection(session, test_user.id, "seb-1")
++    first.provider = "enable_banking"
++    first.institution_name = "SEB"
++    first.status = "error"
++    second = await _make_connection(session, test_user.id, "seb-2")
++    second.provider = "enable_banking"
++    second.institution_name = "SEB"
++    second.status = "error"
++    await session.commit()
++
++    mock_provider = AsyncMock()
++    mock_provider.handle_oauth_callback = AsyncMock(return_value=ConnectionData(
++        external_id="new-eb-conn",
++        institution_name="SEB",
++        credentials={"access_url_enc": "new-encrypted-url"},
++        accounts=[],
++    ))
++
++    with patch("app.services.connection_service.get_provider", return_value=mock_provider):
++        created = await handle_oauth_callback(
++            session,
++            test_workspace.id,
++            test_user.id,
++            "fresh-setup-token",
++            provider_name="enable_banking",
++        )
++
++    assert created.id not in {first.id, second.id}
++
++
++@pytest.mark.asyncio
++async def test_legacy_duplicate_accounts_are_consolidated(
++    session: AsyncSession, test_user, test_workspace
++):
++    """Rows duplicated by 0.31.1/0.31.2 collapse onto one account.
++
++    Those releases matched reauthorised accounts on masked_number +
++    currency, which still let a second row land when the bank rotated the
++    account type. 097 stops new duplicates via stable_id; this repairs the
++    ones already in the database.
++    """
++    connection = await _make_connection(session, test_user.id, "SEB")
++    connection.provider = "enable_banking"
++
++    for ext_id in ("eb-session-1", "eb-session-2"):
++        session.add(Account(
++            id=uuid.uuid4(),
++            user_id=test_user.id,
++            workspace_id=test_workspace.id,
++            connection_id=connection.id,
++            external_id=ext_id,
++            name="Checking",
++            type="checking",
++            masked_number="1234",
++            currency="EUR",
++            stable_id="hash-shared",
++            balance=Decimal("0.00"),
++        ))
++    await session.commit()
++
++    accounts = (
++        await session.execute(
++            select(Account).where(Account.connection_id == connection.id)
++        )
++    ).scalars().all()
++    assert len(accounts) == 2
++
++    await _cleanup_legacy_duplicate_accounts(session, connection)
++
++    remaining = (
++        await session.execute(
++            select(Account).where(Account.connection_id == connection.id)
++        )
++    ).scalars().all()
++    assert len(remaining) == 1
++
++
++@pytest.mark.asyncio
++async def test_legacy_cleanup_keeps_distinct_accounts(
++    session: AsyncSession, test_user, test_workspace
++):
++    """Real accounts at one bank share a masked-number pattern, not a value.
++
++    Two genuine accounts differing in masked suffix must both survive: the
++    cleanup may only merge rows that are actually the same bank account.
++    """
++    connection = await _make_connection(session, test_user.id, "SEB")
++    connection.provider = "enable_banking"
++    for masked in ("1234", "5678"):
++        session.add(Account(
++            id=uuid.uuid4(),
++            user_id=test_user.id,
++            workspace_id=test_workspace.id,
++            connection_id=connection.id,
++            external_id=f"ext-{masked}",
++            name="Checking",
++            type="checking",
++            masked_number=masked,
++            currency="EUR",
++            stable_id=f"hash-{masked}",
++            balance=Decimal("0.00"),
++        ))
++    await session.commit()
++
++    await _cleanup_legacy_duplicate_accounts(session, connection)
++
++    remaining = (
++        await session.execute(
++            select(Account).where(Account.connection_id == connection.id)
++        )
++    ).scalars().all()
++    assert len(remaining) == 2
++
++
++@pytest.mark.asyncio
++async def test_legacy_cleanup_moves_transactions_and_drops_duplicates(
++    session: AsyncSession, test_user, test_workspace
++):
++    """Merging moves unique transactions over and deletes exact repeats.
++
++    The duplicate account re-imported the same history under new ids, so its
++    transactions must not survive alongside the original's.
++    """
++    connection = await _make_connection(session, test_user.id, "SEB")
++    connection.provider = "enable_banking"
++    first = Account(
++        id=uuid.uuid4(), user_id=test_user.id, workspace_id=test_workspace.id,
++        connection_id=connection.id, external_id="eb-session-1", name="Checking",
++        type="checking", masked_number="1234", currency="EUR",
++        stable_id="hash-shared", balance=Decimal("0.00"),
++    )
++    second = Account(
++        id=uuid.uuid4(), user_id=test_user.id, workspace_id=test_workspace.id,
++        connection_id=connection.id, external_id="eb-session-2", name="Checking",
++        type="checking", masked_number="1234", currency="EUR",
++        stable_id="hash-shared", balance=Decimal("0.00"),
++    )
++    session.add_all([first, second])
++    await session.flush()
++
++    # Same logical transaction, re-keyed by the second authorization.
++    for owner, ext_id, amount in (
++        (first, "tx-1", Decimal("10.00")),
++        (first, "tx-2", Decimal("20.00")),
++        (second, "tx-1", Decimal("10.00")),
++        (second, "tx-3", Decimal("30.00")),
++    ):
++        session.add(Transaction(
++            id=uuid.uuid4(), user_id=test_user.id, workspace_id=test_workspace.id,
++            account_id=owner.id, external_id=ext_id, description="Card payment",
++            amount=amount, currency="EUR", date=date(2026, 9, 1), type="debit",
++            source="sync", status="posted",
++        ))
++    await session.commit()
++
++    await _cleanup_legacy_duplicate_accounts(session, connection)
++
++    surviving_accounts = (
++        await session.execute(
++            select(Account).where(Account.connection_id == connection.id)
++        )
++    ).scalars().all()
++    assert len(surviving_accounts) == 1
++
++    remaining = list(
++        (
++            await session.execute(
++                select(Transaction).where(
++                    Transaction.account_id == surviving_accounts[0].id
++                )
++            )
++        ).scalars().all()
++    )
++    assert sorted(t.external_id for t in remaining if t.external_id) == [
++        "tx-1",
++        "tx-2",
++        "tx-3",
++    ]
++    # The re-keyed copy of tx-1 was dropped rather than kept alongside.
++    assert len([t for t in remaining if t.external_id == "tx-1"]) == 1
++
++
+ @pytest.mark.asyncio
+ async def test_token_reconnect_rejects_provider_mismatch(
+     session: AsyncSession, test_user, test_workspace
+diff --git a/backend/tests/test_providers_enable_banking.py b/backend/tests/test_providers_enable_banking.py
+index b9d689f..d37c6e4 100644
+--- a/backend/tests/test_providers_enable_banking.py
++++ b/backend/tests/test_providers_enable_banking.py
+@@ -17,6 +17,7 @@ from cryptography.hazmat.primitives import serialization
+ from cryptography.hazmat.primitives.asymmetric import rsa
+ from jose import jwt
+ 
++from app.core.config import get_settings
+ from app.providers.base import (
+     ProviderDataUnavailable,
+     ProviderUserActionRequired,
+@@ -24,7 +25,6 @@ from app.providers.base import (
+     mask_last4,
+ )
+ from app.providers.enable_banking import (
+-    DEFAULT_HISTORY_DAYS,
+     FALLBACK_HISTORY_DAYS,
+     EnableBankingProvider,
+     _account_identifier,
+@@ -452,7 +452,13 @@ def _span_days(request: httpx.Request) -> int:
+ 
+ 
+ @pytest.mark.asyncio
+-async def test_get_transactions_default_window_is_90_days_inclusive(eb_keys):
++async def test_get_transactions_default_window_follows_configured_history_days(eb_keys):
++    """The add-on requests ENABLE_BANKING_HISTORY_DAYS (999), not upstream's 90.
++
++    DEFAULT_HISTORY_DAYS stays as the shipped default for the constant's sake;
++    the effective window comes from the setting so operators can trade bank
++    rejections against history depth.
++    """
+     provider = EnableBankingProvider()
+     requests: list[httpx.Request] = []
+ 
+@@ -465,7 +471,28 @@ async def test_get_transactions_default_window_is_90_days_inclusive(eb_keys):
+ 
+     assert len(requests) == 1
+     assert requests[0].url.params["date_to"] == date.today().isoformat()
+-    assert _span_days(requests[0]) == DEFAULT_HISTORY_DAYS == 90
++    assert _span_days(requests[0]) == get_settings().enable_banking_history_days
++    # An over-long window is narrowed by the bank rather than rejected.
++    assert requests[0].url.params["strategy"] == "longest"
++
++
++@pytest.mark.asyncio
++async def test_get_transactions_explicit_since_never_sends_strategy(eb_keys):
++    """An explicit `since` is the caller's choice; never widen or shorten it."""
++    provider = EnableBankingProvider()
++    requests: list[httpx.Request] = []
++    since = date.today() - timedelta(days=10)
++
++    def handler(request: httpx.Request) -> httpx.Response:
++        requests.append(request)
++        return httpx.Response(200, json={"transactions": []})
++
++    with _patch_client(provider, handler):
++        await provider.get_transactions(_CREDENTIALS, "acc-1", since)
++
++    assert len(requests) == 1
++    assert "strategy" not in requests[0].url.params
++    assert _span_days(requests[0]) == 11
+ 
+ 
+ @pytest.mark.asyncio
+@@ -496,9 +523,12 @@ async def test_get_transactions_retries_shorter_window_on_wrong_period(eb_keys):
+         transactions = await provider.get_transactions(_CREDENTIALS, "acc-1")
+ 
+     assert [_span_days(r) for r in requests] == [
+-        DEFAULT_HISTORY_DAYS,
++        get_settings().enable_banking_history_days,
+         FALLBACK_HISTORY_DAYS,
+     ]
++    # The retry is a plain bounded window: no strategy, so a bank that caps the
++    # range gets exactly the fallback and nothing more.
++    assert "strategy" not in requests[1].url.params
+     assert [t.external_id for t in transactions] == ["tx-1"]
+ 
+ 
+@@ -871,6 +901,45 @@ def test_build_transaction_treats_entry_reference_zero_as_missing():
+     assert tx1.external_id != tx2.external_id
+ 
+ 
++def test_txn_fingerprint_ignores_session_account_uid():
++    """Reauthorization mints a new EB session and a new account uid.
++
++    The same booked transaction must keep its fingerprint across that change,
++    or every synced transaction is re-inserted under a new external_id on
++    reconnect — a full duplicate of the account's history. The counterparty
++    IBANs keep the hash account-specific without pinning it to the session.
++    """
++    raw = {
++        "booking_date": "2026-09-01",
++        "value_date": "2026-09-01",
++        "transaction_amount": {"amount": "12.50", "currency": "EUR"},
++        "credit_debit_indicator": "DBIT",
++        "remittance_information": ["Coffee"],
++        "creditor_account": {"iban": "DE89370400440532013000"},
++    }
++    assert _txn_fingerprint("uid-session-1", raw) == _txn_fingerprint(
++        "uid-session-2", dict(raw)
++    )
++
++
++def test_txn_fingerprint_differs_across_accounts_with_distinct_counterparties():
++    """Dropping account_uid must not collapse two different real accounts.
++
++    Two accounts holding the identical transaction at the same price are
++    still distinguishable by the counterparty the bank reported.
++    """
++    base = {
++        "booking_date": "2026-09-01",
++        "value_date": "2026-09-01",
++        "transaction_amount": {"amount": "12.50", "currency": "EUR"},
++        "credit_debit_indicator": "DBIT",
++        "remittance_information": ["Coffee"],
++    }
++    one = dict(base, creditor_account={"iban": "DE11111111111111111111"})
++    two = dict(base, creditor_account={"iban": "DE22222222222222222222"})
++    assert _txn_fingerprint("acc", one) != _txn_fingerprint("acc", two)
++
++
+ def test_txn_fingerprint_includes_transaction_date():
+     raw1 = {
+         "transaction_amount": {"amount": "20.00", "currency": "EUR"},

@@ -31,7 +31,6 @@
 | Add-on | Status | Version | Ingress | Host Port(s) | Supported Architectures | Description |
 | :--- | :---: | :---: | :---: | :---: | :--- | :--- |
 | [**Securo**](securo/) | Stable | ![Securo Version](https://img.shields.io/badge/dynamic/yaml?label=&query=%24.version&url=https%3A%2F%2Fraw.githubusercontent.com%2Fyianniscy84%2Fhassio-addons%2Fmain%2Fsecuro%2Fconfig.yaml&color=brightgreen&style=flat-square) | ✅ Yes | `8080` (Web)<br>`8765` (MCP) | ![aarch64](https://img.shields.io/badge/aarch64-green.svg?style=flat-square&logo=arm) ![amd64](https://img.shields.io/badge/amd64-green.svg?style=flat-square&logo=amd) ![armhf](https://img.shields.io/badge/armhf-green.svg?style=flat-square&logo=arm) ![armv7](https://img.shields.io/badge/armv7-green.svg?style=flat-square&logo=arm) ![i386](https://img.shields.io/badge/i386-green.svg?style=flat-square&logo=intel) | Self-hosted personal finance manager with multi-account tracking, bank sync, and MCP. |
-| [**Securo Test**](securo-test/) | Test | ![Securo Test Version](https://img.shields.io/badge/dynamic/yaml?label=&query=%24.version&url=https%3A%2F%2Fraw.githubusercontent.com%2Fyianniscy84%2Fhassio-addons%2Fmain%2Fsecuro-test%2Fconfig.yaml&color=orange&style=flat-square) | ✅ Yes | `81` / `8081` (Web)<br>`8766` (MCP) | ![aarch64](https://img.shields.io/badge/aarch64-green.svg?style=flat-square&logo=arm) ![amd64](https://img.shields.io/badge/amd64-green.svg?style=flat-square&logo=amd) ![armhf](https://img.shields.io/badge/armhf-green.svg?style=flat-square&logo=arm) ![armv7](https://img.shields.io/badge/armv7-green.svg?style=flat-square&logo=arm) ![i386](https://img.shields.io/badge/i386-green.svg?style=flat-square&logo=intel) | Pre-release and testing instance of Securo on isolated ports. |
 | [**OmniRoute**](omniroute/) | Stable | ![OmniRoute Version](https://img.shields.io/badge/dynamic/yaml?label=&query=%24.version&url=https%3A%2F%2Fraw.githubusercontent.com%2Fyianniscy84%2Fhassio-addons%2Fmain%2Fomniroute%2Fconfig.yaml&color=brightgreen&style=flat-square) | ❌ No | `20128` (API/UI) | ![aarch64](https://img.shields.io/badge/aarch64-green.svg?style=flat-square&logo=arm) ![amd64](https://img.shields.io/badge/amd64-green.svg?style=flat-square&logo=amd) ![armv7](https://img.shields.io/badge/armv7-green.svg?style=flat-square&logo=arm) | AI gateway routing 350+ providers & 1200+ models via one OpenAI-compatible endpoint. |
 | [**OmniRoute Test**](omniroute-test/) | Test | ![OmniRoute Test Version](https://img.shields.io/badge/dynamic/yaml?label=&query=%24.version&url=https%3A%2F%2Fraw.githubusercontent.com%2Fyianniscy84%2Fhassio-addons%2Fmain%2Fomniroute-test%2Fconfig.yaml&color=orange&style=flat-square) | ❌ No | `20129` (API/UI) | ![aarch64](https://img.shields.io/badge/aarch64-green.svg?style=flat-square&logo=arm) ![amd64](https://img.shields.io/badge/amd64-green.svg?style=flat-square&logo=amd) ![armv7](https://img.shields.io/badge/armv7-green.svg?style=flat-square&logo=arm) | Pre-release test instance of OmniRoute on direct port `20129`. |
 
@@ -78,7 +77,7 @@ Click the button below to add this repository directly to your Home Assistant in
 - **Model Context Protocol (MCP)**: Built-in JSON-RPC MCP server (`/mcp` or port `8765`) to query financial data directly from Claude Desktop, Cursor, n8n, or Home Assistant agents.
 - **Multi-Factor Auth & OIDC**: Full support for TOTP, passkeys, and external OpenID Connect identity providers (Authentik, Authelia, Pocket ID).
 
-> Upstream project: [securo-finance/securo](https://github.com/securo-finance/securo) | [Documentation](securo/DOCS.md) | [Test Version](securo-test/)
+> Upstream project: [securo-finance/securo](https://github.com/securo-finance/securo) | [Documentation](securo/DOCS.md)
 
 ---
 
@@ -102,11 +101,13 @@ Click the button below to add this repository directly to your Home Assistant in
 
 ## 🧪 Production vs. Test Add-ons
 
-This repository maintains dedicated `-test` variants for both Securo and OmniRoute:
+OmniRoute ships a dedicated `omniroute-test` variant alongside its stable release:
 
-- **Isolated Storage**: Test add-ons use isolated `/data` partitions so your production database and secrets remain untouched.
-- **Separate Network Ports**: Test containers bind to alternate ports (`8081`/`8766` for Securo Test, `20129` for OmniRoute Test) to allow concurrent execution alongside production add-ons.
-- **Release Preview**: Test add-ons receive early upstream feature builds before they land in the stable releases.
+- **Isolated Storage**: The test add-on uses an isolated `/data` partition so your production database and secrets remain untouched.
+- **Separate Network Ports**: The test container binds to an alternate port (`20129`) to allow concurrent execution alongside the stable add-on.
+- **Release Preview**: The test add-on receives early upstream feature builds before they land in the stable release.
+
+Securo has no test variant — `securo/` is the only add-on and is validated with a local `docker build` plus smoke test before each release.
 
 ---
 

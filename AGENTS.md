@@ -11,7 +11,6 @@ Repository URL: `https://github.com/yianniscy84/hassio-addons`
 | Addon Directory | Type | Slug | Upstream Project | Web / Ingress | MCP Port | Direct Port | Base Stack |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
 | [`securo/`](securo/) | Production | `securo` | `securo-finance/securo` | Port 80 / Ingress | 8765 | 8080 | Python 3.12 (FastAPI), React, PG 16, Redis, Celery, Alpine |
-| [`securo-test/`](securo-test/) | Test | `securo-test` | `securo-finance/securo` | Port 81 / Ingress | 8766 | 8081 | Same as securo |
 | [`omniroute/`](omniroute/) | Production | `omniroute` | `diegosouzapw/OmniRoute` | No Ingress | — | 20128 | Node.js (upstream image), Redis, Debian (direct access) |
 | [`omniroute-test/`](omniroute-test/) | Test | `omniroute-test` | `diegosouzapw/OmniRoute` | No Ingress | — | 20129 | Node.js (upstream image), Redis, Debian (direct access) |
 
@@ -24,10 +23,10 @@ Repository URL: `https://github.com/yianniscy84/hassio-addons`
 ### Local Smoke Tests
 
 ```bash
-# Securo (from securo/ or securo-test/)
+# Securo (from securo/)
 cd securo
 docker build -t securo-addon .
-docker run -d --name securo-test -p 8080:80 -p 8765:8765 -v securo-data:/data securo-addon
+docker run -d --name securo-smoke -p 8080:80 -p 8765:8765 -v securo-data:/data securo-addon
 # Access UI: http://localhost:8080 | MCP: http://localhost:8765/mcp
 
 # OmniRoute (from omniroute/ or omniroute-test/)
@@ -73,10 +72,23 @@ See [`UPSTREAM.md`](UPSTREAM.md) for version matrix and sync tracking.
    - Check if upstream merged the PR in the new release.
    - If not yet merged upstream, re-apply active patches:
      `git apply --directory=securo patches/securo/*.patch`
-     `git apply --directory=securo-test patches/securo/*.patch`
    - If merged upstream, remove obsolete patch file from `patches/securo/` and update `UPSTREAM.md`.
+   - **Re-apply on top of upstream, never as a replacement.** The add-on also carries
+     changes adopted early from still-open upstream PRs (see "Superseded by upstream
+     work we adopted early" in `UPSTREAM.md` — currently PR #1074, which added
+     `accounts.stable_id` and migration `097`). Those live in the copied source and
+     are deliberately *not* in any patch file. Check whether the incoming upstream
+     release now contains them before applying, or they will be duplicated.
 4. Regenerate lockfile if backend dependencies changed: `cd backend && uv lock`.
 5. Update `UPSTREAM.md` with new upstream version and sync timestamp.
+
+> **Never restore a whole HAOS file from a previous sync.** The four frontend files
+> above and `backend/pyproject.toml` are upstream files with small HAOS edits layered
+> on top. Restoring a stale copy silently reverts every upstream change made in
+> between (this happened to `api.ts` and `App.tsx` during the v0.16.3 sync, losing
+> the new invoice-schedule and products routes). Copy upstream's current file, then
+> re-apply only the HAOS delta, and confirm with:
+> `git diff --no-index <upstream>/frontend/src/lib/api.ts securo/frontend/src/lib/api.ts`
 
 ---
 

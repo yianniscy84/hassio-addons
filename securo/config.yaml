@@ -2,7 +2,7 @@ name: "Securo"
 description: >-
   Self-hosted personal finance manager. Multi-account tracking,
   transaction imports, bank sync, budgets, goals, reports, and optional MCP
-version: "0.31.2"
+version: "0.32.0"
 slug: "securo"
 init: false
 arch:
