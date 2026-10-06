@@ -1,7 +1,7 @@
 # Home Assistant Add-on: Memos
 
 <p align="center">
-  <img src="icon.png" alt="Memos Logo" width="120">
+  <img src="https://raw.githubusercontent.com/yianniscy84/hassio-addons/main/memos/icon.png" alt="Memos Logo" width="120">
 </p>
 
 <p align="center">

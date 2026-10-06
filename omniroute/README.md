@@ -1,7 +1,7 @@
 # Home Assistant Add-on: OmniRoute
 
 <p align="center">
-  <img src="icon.png" alt="OmniRoute Logo" width="120">
+  <img src="https://raw.githubusercontent.com/yianniscy84/hassio-addons/main/omniroute/icon.png" alt="OmniRoute Logo" width="120">
 </p>
 
 <p align="center">

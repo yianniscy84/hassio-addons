@@ -1,7 +1,7 @@
 # Home Assistant Add-on: Securo
 
 <p align="center">
-  <img src="icon.png" alt="Securo Logo" width="120">
+  <img src="https://raw.githubusercontent.com/yianniscy84/hassio-addons/main/securo/icon.png" alt="Securo Logo" width="120">
 </p>
 
 <p align="center">

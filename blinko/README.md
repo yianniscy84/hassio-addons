@@ -1,7 +1,7 @@
 # Home Assistant Add-on: Blinko
 
 <p align="center">
-  <img src="icon.png" alt="Blinko Logo" width="120">
+  <img src="https://raw.githubusercontent.com/yianniscy84/hassio-addons/main/blinko/icon.png" alt="Blinko Logo" width="120">
 </p>
 
 <p align="center">
@@ -77,5 +77,5 @@
 ## 🛠️ Support & Community
 
 - **Upstream Repository**: [blinkospace/blinko](https://github.com/blinkospace/blinko) (GPL-3.0 License)
-- **Memos Documentation**: [docs.blinko.space](https://docs.blinko.space/en/install)
+- **Blinko Documentation**: [docs.blinko.space](https://docs.blinko.space/en/install)
 - **GitHub Issues**: [GitHub Issues](https://github.com/yianniscy84/hassio-addons/issues)
