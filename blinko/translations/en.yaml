@@ -1,0 +1,14 @@
+configuration:
+  db_url:
+    name: External Database URL
+    description: >-
+      PostgreSQL connection string for an external server, e.g.
+      postgres://user:password@host:5432/blinko — leave empty to use the
+      bundled PostgreSQL database stored in /data/postgres. With an external
+      server the database is created automatically on first start.
+  nextauth_url:
+    name: Public URL
+    description: >-
+      Canonical external URL of your Blinko instance (e.g.
+      https://blinko.example.com). Only needed for SSO/OIDC or access from
+      outside your network; leave empty for plain LAN use on port 1111.

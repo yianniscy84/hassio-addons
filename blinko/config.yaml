@@ -1,0 +1,32 @@
+name: "Blinko"
+description: >-
+  AI-powered card note-taking. Capture fleeting thoughts instantly with
+  Markdown, tags, plugins, and AI-enhanced retrieval — self-hosted and
+  private.
+version: "1.8.8"
+slug: "blinko"
+init: false
+arch:
+  - amd64
+  - aarch64
+startup: application
+boot: auto
+ports:
+  1111/tcp: 1111
+ports_description:
+  1111/tcp: "Blinko web interface and API"
+host_network: false
+apparmor: true
+webui: "http://[HOST]:[PORT:1111]/"
+panel_icon: mdi:lightbulb-outline
+panel_title: "Blinko"
+backup: hot
+stage: stable
+
+options:
+  db_url: ""
+  nextauth_url: ""
+
+schema:
+  db_url: password
+  nextauth_url: str

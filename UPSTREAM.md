@@ -29,6 +29,14 @@ Both addons clone from upstream Git tags. Bump `OMNIROUTE_VERSION` in the Docker
 
 The memos add-on wraps the pre-built `neosmemo/memos` image. Bump `BUILD_FROM` in the Dockerfile (and `version` in `config.yaml`) to update.
 
+### Blinko (blinkospace/blinko)
+
+| Addon | Upstream Version | Addon Version | Last Synced |
+|-------|-----------------|---------------|-------------|
+| `blinko/` | 1.8.8 | 1.8.8 | 2026-10-06 |
+
+The blinko add-on wraps the pre-built `blinkospace/blinko` image (amd64 + aarch64 only). Bump `BUILD_FROM` in the Dockerfile (and `version` in `config.yaml`) to update.
+
 ## Active Patches & Upstream PRs
 
 ### Securo
@@ -78,6 +86,7 @@ When syncing Securo from upstream:
 - https://github.com/securo-finance/securo
 - https://github.com/diegosouzapw/OmniRoute
 - https://github.com/usememos/memos
+- https://github.com/blinkospace/blinko
 
 ## Sync Notes
 
@@ -114,3 +123,15 @@ When syncing Securo from upstream:
 - No ingress: upstream has no base-path support ([usememos/memos#3781](https://github.com/usememos/memos/issues/3781))
 - External DB hosts use the internal add-on DNS pattern `{REPO}-{SLUG}` (see `memos/DOCS.md`)
 - On update: bump `BUILD_FROM` + `BUILD_VERSION` in `memos/Dockerfile`, `version` in `memos/config.yaml`, and `updater.json`
+
+### Blinko
+
+- Uses the pre-built `blinkospace/blinko` image (pinned tag, not built from source)
+- HAOS-specific files maintained in this repo:
+  - `blinko/run.sh` — entry script (secret generation, bundled/external Postgres, prisma migrations with error handling, SIGTERM trap)
+  - `blinko/config.yaml` — addon manifest (port 1111, options, schema)
+  - `blinko/Dockerfile` — extends official image with bash + PostgreSQL server + bashio stubs, symlinks `/app/.blinko` → `/data/.blinko`
+- No ingress: direct port 1111 only
+- Bundled PostgreSQL in `/data/postgres` (default) mirrors the securo pattern; `db_url` option switches to an external server with auto `CREATE DATABASE`
+- `run.sh` replicates upstream `start.sh` (migrate → seed → server) with error handling — **re-check upstream `start.sh` on every sync** for new steps
+- On update: bump `BUILD_FROM` + `BUILD_VERSION` in `blinko/Dockerfile`, `version` in `blinko/config.yaml`, and `updater.json`

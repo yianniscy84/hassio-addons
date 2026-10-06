@@ -14,6 +14,7 @@ Repository URL: `https://github.com/yianniscy84/hassio-addons`
 | [`omniroute/`](omniroute/) | Production | `omniroute` | `diegosouzapw/OmniRoute` | No Ingress | — | 20128 | Node.js (upstream image), Redis, Debian (direct access) |
 | [`omniroute-test/`](omniroute-test/) | Test | `omniroute-test` | `diegosouzapw/OmniRoute` | No Ingress | — | 20129 | Node.js (upstream image), Redis, Debian (direct access) |
 | [`memos/`](memos/) | Production | `memos` | `usememos/memos` | No Ingress (port 5230) | — | 5230 | Go (upstream image), SQLite/PostgreSQL, Alpine (direct access) |
+| [`blinko/`](blinko/) | Production | `blinko` | `blinkospace/blinko` | No Ingress (port 1111) | — | 1111 | Node.js (upstream image), bundled PostgreSQL, Alpine (direct access) |
 
 ---
 
@@ -41,6 +42,12 @@ cd memos
 docker build -t memos-addon .
 docker run -d --name memos-smoke -p 5230:5230 -v memos-data:/data memos-addon
 # Access UI: http://localhost:5230
+
+# Blinko (from blinko/)
+cd blinko
+docker build -t blinko-addon .
+docker run -d --name blinko-smoke -p 1111:1111 -v blinko-data:/data blinko-addon
+# Access UI: http://localhost:1111
 ```
 
 ---
@@ -66,6 +73,13 @@ docker run -d --name memos-smoke -p 5230:5230 -v memos-data:/data memos-addon
 - **Entrypoint (`run.sh`):** Applies options → optional PostgreSQL `CREATE DATABASE` → re-enters the upstream `entrypoint.sh`, which fixes ownership and drops to UID 10001 via `su-exec` before exec'ing the memos binary.
 - **No Ingress:** Upstream has no base-path support (`usememos/memos#3781`); direct port 5230 only.
 - **Data:** `MEMOS_DATA=/data` (SQLite DB + attachments). External databases are reached via internal DNS `{REPO}-{SLUG}` (see `memos/DOCS.md`).
+
+### Blinko (Node.js / Alpine)
+- **Upstream Base Image:** Extends `blinkospace/blinko:1.8.8` (pinned tag). No source build. Runs as root; `dumb-init` is upstream's PID 1 but is replaced by `run.sh`.
+- **Bundled PostgreSQL:** Default DB lives in `/data/postgres` (initdb → pg_ctl → pg_isready wait → trap cleanup, mirroring securo). Override with the `db_url` option for an external server (auto `CREATE DATABASE` via python3 DSN parse + psql).
+- **Entrypoint (`run.sh`):** Options → generate `/data/nextauth_secret` → start/verify DB → `npx prisma migrate deploy` + `seed.js` (replicates upstream `start.sh` with error handling) → `node server/index.js` with SIGTERM trap.
+- **No Ingress:** Direct port 1111 only. Arch: amd64 + aarch64 (upstream ships no armv7).
+- **Storage:** `/app/.blinko` is a symlink into `/data/.blinko` so attachments land in snapshots. On sync, re-check upstream `start.sh` for new steps.
 
 ---
 
