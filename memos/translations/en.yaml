@@ -1,0 +1,23 @@
+configuration:
+  instance_url:
+    name: Instance URL
+    description: >-
+      Canonical external URL of your Memos instance
+      (e.g. https://memos.example.com). Leave empty to keep fresh installs
+      private; only set this when you access Memos from outside your network.
+  log_level:
+    name: Log Level
+    description: Verbosity of the Memos logs (debug, info, warn, error).
+  db_driver:
+    name: Database Driver
+    description: >-
+      Database backend. sqlite stores everything under /data and is the
+      recommended default. Use postgres or mysql together with Database DSN
+      to connect an external database server.
+  db_dsn:
+    name: Database DSN
+    description: >-
+      Connection string for an external database, e.g.
+      postgres://user:password@host:5432/memos?sslmode=disable — only used
+      when the driver is not sqlite. With PostgreSQL the database is created
+      automatically on first start.

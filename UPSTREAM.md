@@ -21,6 +21,14 @@ The Securo test add-on (`securo-test/`) was removed on 2026-10-04; `securo/` is 
 
 Both addons clone from upstream Git tags. Bump `OMNIROUTE_VERSION` in the Dockerfile to update.
 
+### Memos (usememos/memos)
+
+| Addon | Upstream Version | Addon Version | Last Synced |
+|-------|-----------------|---------------|-------------|
+| `memos/` | v0.31.0 | 0.31.0 | 2026-10-06 |
+
+The memos add-on wraps the pre-built `neosmemo/memos` image. Bump `BUILD_FROM` in the Dockerfile (and `version` in `config.yaml`) to update.
+
 ## Active Patches & Upstream PRs
 
 ### Securo
@@ -69,6 +77,7 @@ When syncing Securo from upstream:
 
 - https://github.com/securo-finance/securo
 - https://github.com/diegosouzapw/OmniRoute
+- https://github.com/usememos/memos
 
 ## Sync Notes
 
@@ -94,3 +103,14 @@ When syncing Securo from upstream:
   - `*/run.sh` — entry script (bashio, Redis, secrets generation)
   - `*/config.yaml` — addon manifest (ports, options, schema)
   - `*/Dockerfile` — extends official image with Redis + bashio stubs
+
+### Memos
+
+- Uses the pre-built `neosmemo/memos` image (pinned tag, not built from source)
+- HAOS-specific files maintained in this repo:
+  - `memos/run.sh` — entry script (bashio options, `MEMOS_*` exports, Postgres auto `CREATE DATABASE`, re-enters upstream entrypoint for privilege drop)
+  - `memos/config.yaml` — addon manifest (port 5230, options, schema)
+  - `memos/Dockerfile` — extends official image with bash/python3/psql + bashio stubs
+- No ingress: upstream has no base-path support ([usememos/memos#3781](https://github.com/usememos/memos/issues/3781))
+- External DB hosts use the internal add-on DNS pattern `{REPO}-{SLUG}` (see `memos/DOCS.md`)
+- On update: bump `BUILD_FROM` + `BUILD_VERSION` in `memos/Dockerfile`, `version` in `memos/config.yaml`, and `updater.json`

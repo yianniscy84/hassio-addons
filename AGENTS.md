@@ -13,6 +13,7 @@ Repository URL: `https://github.com/yianniscy84/hassio-addons`
 | [`securo/`](securo/) | Production | `securo` | `securo-finance/securo` | Port 80 / Ingress | 8765 | 8080 | Python 3.12 (FastAPI), React, PG 16, Redis, Celery, Alpine |
 | [`omniroute/`](omniroute/) | Production | `omniroute` | `diegosouzapw/OmniRoute` | No Ingress | — | 20128 | Node.js (upstream image), Redis, Debian (direct access) |
 | [`omniroute-test/`](omniroute-test/) | Test | `omniroute-test` | `diegosouzapw/OmniRoute` | No Ingress | — | 20129 | Node.js (upstream image), Redis, Debian (direct access) |
+| [`memos/`](memos/) | Production | `memos` | `usememos/memos` | No Ingress (port 5230) | — | 5230 | Go (upstream image), SQLite/PostgreSQL, Alpine (direct access) |
 
 ---
 
@@ -34,6 +35,12 @@ cd omniroute
 docker build -t omniroute-addon .
 docker run -d --name omniroute-test -p 20128:20128 -v omniroute-data:/data omniroute-addon
 # Access UI & API: http://localhost:20128
+
+# Memos (from memos/)
+cd memos
+docker build -t memos-addon .
+docker run -d --name memos-smoke -p 5230:5230 -v memos-data:/data memos-addon
+# Access UI: http://localhost:5230
 ```
 
 ---
@@ -53,6 +60,12 @@ docker run -d --name omniroute-test -p 20128:20128 -v omniroute-data:/data omnir
 - **Runtime Stack:** Adds `redis-server`, `curl`, `tzdata`, `python3`.
 - **Entrypoint (`run.sh`):** Boots Redis → OmniRoute (`node dev/run-standalone.mjs`). Both `omniroute` (port 20128) and `omniroute-test` (port 20129) run standalone without Nginx/Ingress.
 - **Persistent Secrets:** Stored at `/data/jwt_secret` and `/data/api_key_secret`.
+
+### Memos (Go / Alpine)
+- **Upstream Base Image:** Extends `neosmemo/memos:0.31.0` (pinned tag). No source build.
+- **Entrypoint (`run.sh`):** Applies options → optional PostgreSQL `CREATE DATABASE` → re-enters the upstream `entrypoint.sh`, which fixes ownership and drops to UID 10001 via `su-exec` before exec'ing the memos binary.
+- **No Ingress:** Upstream has no base-path support (`usememos/memos#3781`); direct port 5230 only.
+- **Data:** `MEMOS_DATA=/data` (SQLite DB + attachments). External databases are reached via internal DNS `{REPO}-{SLUG}` (see `memos/DOCS.md`).
 
 ---
 

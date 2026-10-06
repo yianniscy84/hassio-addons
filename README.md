@@ -33,6 +33,7 @@
 | [**Securo**](securo/) | Stable | ![Securo Version](https://img.shields.io/badge/dynamic/yaml?label=&query=%24.version&url=https%3A%2F%2Fraw.githubusercontent.com%2Fyianniscy84%2Fhassio-addons%2Fmain%2Fsecuro%2Fconfig.yaml&color=brightgreen&style=flat-square) | ✅ Yes | `8080` (Web)<br>`8765` (MCP) | ![aarch64](https://img.shields.io/badge/aarch64-green.svg?style=flat-square&logo=arm) ![amd64](https://img.shields.io/badge/amd64-green.svg?style=flat-square&logo=amd) ![armhf](https://img.shields.io/badge/armhf-green.svg?style=flat-square&logo=arm) ![armv7](https://img.shields.io/badge/armv7-green.svg?style=flat-square&logo=arm) ![i386](https://img.shields.io/badge/i386-green.svg?style=flat-square&logo=intel) | Self-hosted personal finance manager with multi-account tracking, bank sync, and MCP. |
 | [**OmniRoute**](omniroute/) | Stable | ![OmniRoute Version](https://img.shields.io/badge/dynamic/yaml?label=&query=%24.version&url=https%3A%2F%2Fraw.githubusercontent.com%2Fyianniscy84%2Fhassio-addons%2Fmain%2Fomniroute%2Fconfig.yaml&color=brightgreen&style=flat-square) | ❌ No | `20128` (API/UI) | ![aarch64](https://img.shields.io/badge/aarch64-green.svg?style=flat-square&logo=arm) ![amd64](https://img.shields.io/badge/amd64-green.svg?style=flat-square&logo=amd) ![armv7](https://img.shields.io/badge/armv7-green.svg?style=flat-square&logo=arm) | AI gateway routing 350+ providers & 1200+ models via one OpenAI-compatible endpoint. |
 | [**OmniRoute Test**](omniroute-test/) | Test | ![OmniRoute Test Version](https://img.shields.io/badge/dynamic/yaml?label=&query=%24.version&url=https%3A%2F%2Fraw.githubusercontent.com%2Fyianniscy84%2Fhassio-addons%2Fmain%2Fomniroute-test%2Fconfig.yaml&color=orange&style=flat-square) | ❌ No | `20129` (API/UI) | ![aarch64](https://img.shields.io/badge/aarch64-green.svg?style=flat-square&logo=arm) ![amd64](https://img.shields.io/badge/amd64-green.svg?style=flat-square&logo=amd) ![armv7](https://img.shields.io/badge/armv7-green.svg?style=flat-square&logo=arm) | Pre-release test instance of OmniRoute on direct port `20129`. |
+| [**Memos**](memos/) | Stable | ![Memos Version](https://img.shields.io/badge/dynamic/yaml?label=&query=%24.version&url=https%3A%2F%2Fraw.githubusercontent.com%2Fyianniscy84%2Fhassio-addons%2Fmain%2Fmemos%2Fconfig.yaml&color=brightgreen&style=flat-square) | ❌ No | `5230` (Web/API) | ![aarch64](https://img.shields.io/badge/aarch64-green.svg?style=flat-square&logo=arm) ![amd64](https://img.shields.io/badge/amd64-green.svg?style=flat-square&logo=amd) ![armv7](https://img.shields.io/badge/armv7-green.svg?style=flat-square&logo=arm) | Self-hosted note-taking with tags, relations, attachments, and full-text search. |
 
 ---
 
@@ -99,6 +100,23 @@ Click the button below to add this repository directly to your Home Assistant in
 
 ---
 
+### [Memos](memos/)
+
+<p align="center">
+  <img src="memos/icon.png" alt="Memos Logo" width="90">
+</p>
+
+**Memos** is a self-hosted note-taking and memo service — write Markdown notes from any device, organize them with tags and relations, attach files, and search everything instantly, all stored on your own system.
+
+- **Markdown Notes**: Fast, clean web UI for quick capture on phone or desktop.
+- **Organization**: Tags, pinning, memo relations, per-memo visibility, and full-text search.
+- **Attachments**: Images and files stored locally under `/data`.
+- **Flexible Storage**: SQLite out of the box, or an external PostgreSQL/MySQL server (works with the Postgres 17 add-on).
+
+> Upstream project: [usememos/memos](https://github.com/usememos/memos) | [Documentation](memos/DOCS.md)
+
+---
+
 ## 🧪 Production vs. Test Add-ons
 
 OmniRoute ships a dedicated `omniroute-test` variant alongside its stable release:
@@ -115,7 +133,7 @@ Securo has no test variant — `securo/` is the only add-on and is validated wit
 
 If you encounter issues or have suggestions:
 
-1. **Check Documentation**: Review the add-on specific `DOCS.md` ([Securo Docs](securo/DOCS.md) / [OmniRoute Docs](omniroute/DOCS.md)).
+1. **Check Documentation**: Review the add-on specific `DOCS.md` ([Securo Docs](securo/DOCS.md) / [OmniRoute Docs](omniroute/DOCS.md) / [Memos Docs](memos/DOCS.md)).
 2. **Review Add-on Logs**: Open the add-on in Home Assistant and check the **Log** tab for error traces.
 3. **Open an Issue**: Submit a report on [GitHub Issues](https://github.com/yianniscy84/hassio-addons/issues). Please include:
    - Home Assistant OS / Core version

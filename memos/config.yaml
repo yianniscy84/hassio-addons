@@ -1,0 +1,36 @@
+name: "Memos"
+description: >-
+  Self-hosted note-taking and memo service. Write, organize, and share
+  memos with tags, relations, attachments, and full-text search.
+version: "0.31.0"
+slug: "memos"
+init: false
+arch:
+  - amd64
+  - aarch64
+  - armv7
+startup: application
+boot: auto
+ports:
+  5230/tcp: 5230
+ports_description:
+  5230/tcp: "Memos web interface and API"
+host_network: false
+apparmor: true
+webui: "http://[HOST]:[PORT:5230]/"
+panel_icon: mdi:note-text
+panel_title: "Memos"
+backup: hot
+stage: stable
+
+options:
+  instance_url: ""
+  log_level: "info"
+  db_driver: "sqlite"
+  db_dsn: ""
+
+schema:
+  instance_url: str
+  log_level: list(debug|info|warn|error)
+  db_driver: list(sqlite|postgres|mysql)
+  db_dsn: password
