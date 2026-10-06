@@ -53,19 +53,28 @@ Add-ons reach each other over Home Assistant's internal network using the name
    and look at the browser URL — it ends in `/supervisor/addon/<repo>_<slug>`.
    For a repository added as `https://github.com/alexbelgium/hassio-addons` the ID is
    `db21ed7f_postgres_latest`, so the hostname is **`db21ed7f-postgres-latest`**.
-2. **Note the credentials** from the Postgres add-on's Configuration tab:
-   `POSTGRES_USER` (default `homeassistant`) and `POSTGRES_PASSWORD`.
-3. **Configure the Memos add-on:**
+2. **Note the credentials** from the Postgres add-on's Configuration tab. With
+   the add-on defaults that is user `postgres` and password `homeassistant`
+   (`POSTGRES_USER` / `POSTGRES_PASSWORD`) — the same wiring alexbelgium's own
+   Immich add-on ships (`DB_USERNAME: postgres`, `DB_PASSWORD: homeassistant`).
+3. **Choose the host.** Either works:
+   - **Internal add-on name (recommended):** `db21ed7f-postgres-latest` — the
+     container-to-container path, independent of host networking.
+   - **Host name**, like Immich's default: `homeassistant.local` on the published
+     port `5432`. Use your HA host's IP instead if `.local` does not resolve from
+     inside the container.
+4. **Configure the Memos add-on:**
 
    | Option | Value |
    |---|---|
    | `db_driver` | `postgres` |
-   | `db_dsn` | `postgres://homeassistant:<POSTGRES_PASSWORD>@db21ed7f-postgres-latest:5432/memos?sslmode=disable` |
+   | `db_dsn` | `postgres://postgres:<POSTGRES_PASSWORD>@db21ed7f-postgres-latest:5432/memos?sslmode=disable` |
 
-4. **Restart the add-on.** On first start Memos creates the `memos` database
-   automatically (the default `homeassistant` user has the required rights). Any
-   failure is logged as a warning — check the Log tab if the UI reports a
-   database error.
+   Host-name variant: `postgres://postgres:<POSTGRES_PASSWORD>@homeassistant.local:5432/memos?sslmode=disable`
+
+5. **Restart the add-on.** On first start Memos creates the `memos` database
+   automatically (the `postgres` user has the required rights). Any failure is
+   logged as a warning — check the Log tab if the UI reports a database error.
 
 Notes:
 
