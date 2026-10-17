@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.7
+
+- Add `webui` directive to restore "Open Web UI" button in Home Assistant
+
 ## 0.3.6
 
 - Remove ingress support (no more HA sidebar access)

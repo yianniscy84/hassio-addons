@@ -2,7 +2,7 @@ name: "OmniRoute"
 description: >-
   Free AI gateway: one endpoint, 350+ providers, 1200+ models.
   Configure providers, API keys, and routing through the dashboard after install
-version: "0.3.6"
+version: "0.3.7"
 slug: "omniroute"
 init: false
 arch:
@@ -20,6 +20,7 @@ map:
   - type: share
     read_only: false
 apparmor: true
+webui: "http://[HOST]:[PORT:20128]/"
 panel_icon: mdi:api
 panel_title: "OmniRoute"
 backup: hot

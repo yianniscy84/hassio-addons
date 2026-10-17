@@ -16,10 +16,9 @@ The Securo test add-on (`securo-test/`) was removed on 2026-10-04; `securo/` is 
 
 | Addon | Upstream Version | Addon Version | Last Synced |
 |-------|-----------------|---------------|-------------|
-| `omniroute/` (production) | v3.8.50 | 0.3.6 | 2026-08-30 |
-| `omniroute-test/` (test) | v3.8.50 | 0.3.6 | 2026-08-30 |
+| `omniroute/` | v3.8.50 | 0.3.7 | 2026-10-17 |
 
-Both addons clone from upstream Git tags. Bump `OMNIROUTE_VERSION` in the Dockerfile to update.
+The OmniRoute test add-on (`omniroute-test/`) was removed on 2026-10-17; `omniroute/` is now the only tracked OmniRoute add-on and is validated directly via `docker build` + smoke test before release. Clones from upstream Git tags. Bump `OMNIROUTE_VERSION` in the Dockerfile to update.
 
 ### Memos (usememos/memos)
 

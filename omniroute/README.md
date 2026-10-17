@@ -48,7 +48,6 @@
 | **Persistent Data** | Stored under `/data` (keys, JWT secrets, SQLite DB) |
 | **Upstream Project** | [diegosouzapw/OmniRoute](https://github.com/diegosouzapw/OmniRoute) |
 | **Documentation** | [Full Add-on Documentation (DOCS.md)](DOCS.md) |
-| **Test Version** | [`omniroute-test/`](../omniroute-test/) |
 
 ---
 
