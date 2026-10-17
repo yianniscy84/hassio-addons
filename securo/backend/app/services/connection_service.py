@@ -1442,31 +1442,38 @@ async def _find_existing_connected_account(
     # one session, so reauthorising changes it while `stable_id` (the
     # identification_hash) survives. Rebind the existing row — keeping its
     # transactions, rules and name overrides — instead of inserting a duplicate.
-    # `.first()` mirrors the transaction lookup: a stray duplicate must not abort
-    # the whole connection's sync.
+    # EB does not guarantee the hash is unique, so require exactly one unclaimed
+    # candidate: a row another incoming account already took in this run carries
+    # an external_id that is in the batch, and adopting it a second time would
+    # put both transaction feeds on one account.id.
     if acc_data.stable_id:
-        stable_match = (await session.execute(
+        stable_rows = (await session.execute(
             select(Account).where(
                 Account.connection_id == connection.id,
                 Account.stable_id == acc_data.stable_id,
             )
-        )).scalars().first()
-        if stable_match is not None:
-            stable_match.external_id = acc_data.external_id
-            return stable_match
+        )).scalars().all()
+        stable_rows = [
+            row for row in stable_rows if row.external_id not in incoming_external_ids
+        ]
+        if len(stable_rows) == 1:
+            stable_rows[0].external_id = acc_data.external_id
+            return stable_rows[0]
 
     # Last resort for rows that predate `stable_id` (added by migration 097, and
     # only ever backfilled by a *successful* sync — which a user whose bank was
     # failing never had). The masked identifier is the closest thing to an
-    # account number we keep. Require a single candidate: a shared last-4 must
-    # never merge two accounts, and a duplicate is recoverable where crossed
-    # transactions are not.
+    # account number we keep. Two guards, both fail-closed: a single candidate
+    # (a shared last-4 must never merge two accounts), and candidates limited to
+    # rows with no stable id — a row that is already identified is a different
+    # account, so adopting it would overwrite its identity and mix histories.
     if acc_data.masked_number:
         masked_rows = (await session.execute(
             select(Account).where(
                 Account.connection_id == connection.id,
                 Account.masked_number == acc_data.masked_number,
                 Account.currency == acc_data.currency,
+                Account.stable_id.is_(None),
             )
         )).scalars().all()
         masked_rows = [
@@ -1731,6 +1738,7 @@ async def _find_synced_duplicate(
 async def _cleanup_phantom_duplicates(
     session: AsyncSession,
     connection_id: uuid.UUID,
+    live_external_ids: Optional[dict[uuid.UUID, set[str]]] = None,
 ) -> set[uuid.UUID]:
     """Delete synced transactions that are phantom duplicates.
 
@@ -1744,6 +1752,15 @@ async def _cleanup_phantom_duplicates(
     within ±1 day. The pairing of the sibling is the safety signal that lets
     us distinguish the duplicate from a legitimate same-day repeat (e.g. two
     real Uber rides for the same fare).
+
+    ``live_external_ids`` maps an account id to the transaction ids the
+    provider returned for it in this sync. For an account in that map, a
+    sibling with a different id marks the tx as a phantom only when exactly
+    one of the two ids is still returned, which is what a re-keyed twin looks
+    like. Both ids returned means two real payments (e.g. two same-day Pix of
+    the same amount, #1038). Neither returned means the rows have left the
+    provider's fetch window, so this sync has no evidence about them, and they
+    were already checked while they were in it.
 
     Returns the ids of the accounts that lost a row, so the caller can
     reconcile their opening balances against what is left.
@@ -1766,6 +1783,7 @@ async def _cleanup_phantom_duplicates(
 
     touched: set[uuid.UUID] = set()
     for tx in unmatched:
+        live = (live_external_ids or {}).get(tx.account_id)
         date_lo = tx.date - timedelta(days=1)
         date_hi = tx.date + timedelta(days=1)
         sibling_result = await session.execute(
@@ -1781,6 +1799,12 @@ async def _cleanup_phantom_duplicates(
             )
         )
         for sibling in sibling_result.scalars():
+            if (
+                live is not None
+                and tx.external_id != sibling.external_id
+                and (tx.external_id in live) == (sibling.external_id in live)
+            ):
+                continue
             if token_overlap(
                 sibling.original_description or sibling.description,
                 tx.original_description or tx.description,
@@ -2127,6 +2151,7 @@ async def sync_connection(
         user_currency = user.primary_currency if user else get_settings().default_currency
         new_tx_ids: list[uuid.UUID] = []
         merged_count = 0
+        live_txn_external_ids: dict[uuid.UUID, set[str]] = {}
         # Consolidate rows duplicated by add-on versions 0.31.1/0.31.2 before
         # matching incoming data, so a re-link lands on a single account.
         await _cleanup_legacy_duplicate_accounts(session, connection)
@@ -2277,6 +2302,11 @@ async def sync_connection(
                 credentials, acc_data.external_id, since, payee_source=payee_source
             )
 
+            # Every id the provider returned, pending ones included, so the
+            # phantom cleanup still sees a pending row the filter below skips.
+            live_txn_external_ids[account.id] = {
+                txn.external_id for txn in transactions_data
+            }
             if not import_pending:
                 transactions_data = [t for t in transactions_data if t.status != "pending"]
 
@@ -2552,7 +2582,9 @@ async def sync_connection(
         # Clean up phantom duplicates: providers occasionally double-report the
         # same payment with different ids. Once transfer detection has paired
         # the real one, the orphan twin gets removed here.
-        touched_account_ids = await _cleanup_phantom_duplicates(session, connection.id)
+        touched_account_ids = await _cleanup_phantom_duplicates(
+            session, connection.id, live_txn_external_ids
+        )
 
         # The opening balances above were reconciled with the phantoms still
         # counted. Reconcile the open accounts that lost one again, so the

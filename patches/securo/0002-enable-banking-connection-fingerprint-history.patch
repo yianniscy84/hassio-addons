@@ -1,9 +1,10 @@
-From: Home Assistant Securo Add-on <noreply@home-assistant.io>
-Date: Sat, 4 Oct 2026 12:00:00 +0000
+From bc50fdc6daff011e70d41b1eef207f805fa8757d Mon Sep 17 00:00:00 2001
+From: Ioannis Ioannou <ioannis.ioannou.84@gmail.com>
+Date: Sat, 17 Oct 2026 09:47:11 +0300
 Subject: [PATCH] fix(enable-banking): stable fingerprints, duplicate-connection
  adoption, and configurable history window
 
-Four fixes layered on top of upstream v0.16.3 + PR #1074 (stable_id).
+Four fixes layered on top of upstream v0.16.4 + PR #1074 (stable_id).
 None is upstream behaviour, so they are carried as an add-on patch.
 
 1. _txn_fingerprint excludes the session-scoped account_uid. Enable
@@ -28,8 +29,15 @@ None is upstream behaviour, so they are carried as an add-on patch.
 
 Reported upstream as issue #1013.
 ---
+ backend/app/core/config.py                    |   4 +
+ backend/app/providers/enable_banking.py       |  23 +-
+ backend/app/services/connection_service.py    | 111 +++++++
+ backend/tests/test_connection_service.py      | 306 ++++++++++++++++++
+ .../tests/test_providers_enable_banking.py    |  77 ++++-
+ 5 files changed, 513 insertions(+), 8 deletions(-)
+
 diff --git a/backend/app/core/config.py b/backend/app/core/config.py
-index 1d4c7c0..b874b2d 100644
+index 11b3b36..b903151 100644
 --- a/backend/app/core/config.py
 +++ b/backend/app/core/config.py
 @@ -43,6 +43,10 @@ class Settings(BaseSettings):
@@ -126,7 +134,7 @@ index 8e6045e..7a3c2e8 100644
                  params["continuation_key"] = continuation_key
              page = await self._request(
 diff --git a/backend/app/services/connection_service.py b/backend/app/services/connection_service.py
-index 501cc2c..f1a66c1 100644
+index a6521df..8abd027 100644
 --- a/backend/app/services/connection_service.py
 +++ b/backend/app/services/connection_service.py
 @@ -1080,6 +1080,39 @@ async def handle_oauth_callback(
@@ -251,40 +259,18 @@ index 501cc2c..f1a66c1 100644
  async def _find_existing_connected_account(
      session: AsyncSession,
      connection: BankConnection,
-@@ -2019,6 +2127,9 @@ async def sync_connection(
-         user_currency = user.primary_currency if user else get_settings().default_currency
+@@ -2044,6 +2152,9 @@ async def sync_connection(
          new_tx_ids: list[uuid.UUID] = []
          merged_count = 0
+         live_txn_external_ids: dict[uuid.UUID, set[str]] = {}
 +        # Consolidate rows duplicated by add-on versions 0.31.1/0.31.2 before
 +        # matching incoming data, so a re-link lands on a single account.
 +        await _cleanup_legacy_duplicate_accounts(session, connection)
          accounts_data = await provider.get_accounts(credentials)
          incoming_external_ids = {acc.external_id for acc in accounts_data}
          institution_cache: dict[str, Institution] = {}
-diff --git a/backend/pyproject.toml b/backend/pyproject.toml
-index 58099ce..b4bf3dd 100644
---- a/backend/pyproject.toml
-+++ b/backend/pyproject.toml
-@@ -40,12 +40,11 @@ dependencies = [
-     # legacy ZipCrypto scheme and cannot write an encrypted archive at all,
-     # so AES-256 zips need this fork of it.
-     "pyzipper>=0.4.0",
--    # Bundled multilingual embedder — only imported on demand by the
--    # agents knowledge-base path. ONNX runtime, ~120 MB model downloaded
--    # on first use to /app/data/embedding_models. Users not on the
--    # agents feature pay zero cost (the package is installed but never
--    # imported).
--    "fastembed>=0.4.0",
-+    # fastembed / onnxruntime intentionally excluded on the Alpine add-on
-+    # build: onnxruntime publishes no musllinux wheel, so it cannot be
-+    # installed against musl libc. Native embeddings are unavailable there;
-+    # when agents/MCP are enabled, use ollama/openai/openai_compatible for
-+    # AGENTS_EMBEDDING_PROVIDER.
-     # Resolve the host's IANA timezone when no app setting or TZ override exists.
-     "tzlocal>=5.0.0",
- ]
 diff --git a/backend/tests/test_connection_service.py b/backend/tests/test_connection_service.py
-index e370d07..678a868 100644
+index ab55ea2..135fc0c 100644
 --- a/backend/tests/test_connection_service.py
 +++ b/backend/tests/test_connection_service.py
 @@ -27,6 +27,7 @@ from app.providers.base import (
@@ -732,3 +718,6 @@ index b9d689f..d37c6e4 100644
  def test_txn_fingerprint_includes_transaction_date():
      raw1 = {
          "transaction_amount": {"amount": "20.00", "currency": "EUR"},
+-- 
+2.46.0.windows.1
+

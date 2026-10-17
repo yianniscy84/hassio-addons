@@ -1,5 +1,31 @@
 # Changelog
 
+## 0.33.0
+
+- Sync with upstream Securo v0.16.4
+- New: Hungarian (`hu`) and Czech (`cs`) complete interface translations with plural forms
+- New: Cash flow projection zero-date reporting — the report identifies the lowest point of projection and marks the date when the balance crosses zero
+- New: Description suggestions in transaction form — autocomplete suggestions based on previously typed descriptions, pre-filling last used category and payee
+- New: Search and URL query/status filters for Groups
+- New: Select/Deselect all transactions checkbox in manual import across filtered rows
+- New: Macedonian Denar (`MKD`) currency support
+- New: Kazakhstani BIN and IIN fiscal pack validation
+- Fix: Credit card detail page utilization correctly reported from real account balance
+- Fix: Onboarding tour buttons kept inside card bounds on narrow viewports
+- Fix: Asset transaction total priced in the holding's own currency
+- Fix: Repeating an amount typed with comma-decimals as installments preserves cents
+- Fix: Phantom duplicate cleanup avoids deleting legitimate same-day repeat transactions
+- Fix: Stable transaction list pagination with id tie-breaking
+- Fix: Passkey management dialog session isolation
+- Fix: Recurring invoice date generation using workspace dates near midnight
+- Fix: Imported transactions evaluated as posted before rule matching
+- Fix: Asset groups strictly scoped to their workspace
+- Fix: Rule preview accurately reflects hidden category availability
+- Fix: Recurring transaction calendar date preserved in dialog
+- Fix: Asset page empty states card alignment
+- Patch 0002 rebased: Enable Banking stable fingerprints, duplicate-connection adoption on reconnect, and configurable history window (`strategy="longest"`) updated for upstream v0.16.4
+- Chore: Update `uv` lockfile and backend dependencies
+
 ## 0.32.0
 
 - Sync with upstream Securo v0.16.3 (includes v0.16.2 and v0.16.3)
