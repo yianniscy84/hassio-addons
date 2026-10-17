@@ -1,0 +1,8 @@
+#!/bin/bash
+# Stub for s6-overlay's with-contenv.
+# Shebang usage: #!/usr/bin/with-contenv bashio
+#   $1 = "bashio" (the shell name, ignored here)
+#   $2 = the script to run
+# BASH_ENV causes bash to source the file automatically for non-interactive
+# scripts, so bashio::* functions are available inside /run.sh.
+BASH_ENV=/usr/local/lib/bashio_stub.sh exec bash "$2"

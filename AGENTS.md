@@ -15,6 +15,7 @@ Repository URL: `https://github.com/yianniscy84/hassio-addons`
 | [`omniroute-test/`](omniroute-test/) | Test | `omniroute-test` | `diegosouzapw/OmniRoute` | No Ingress | — | 20129 | Node.js (upstream image), Redis, Debian (direct access) |
 | [`memos/`](memos/) | Production | `memos` | `usememos/memos` | No Ingress (port 5230) | — | 5230 | Go (upstream image), SQLite/PostgreSQL, Alpine (direct access) |
 | [`blinko/`](blinko/) | Production | `blinko` | `blinkospace/blinko` | No Ingress (port 1111) | — | 1111 | Node.js (upstream image), bundled PostgreSQL, Alpine (direct access) |
+| [`freellmapi/`](freellmapi/) | Production | `freellmapi` | `tashfeenahmed/freellmapi` | No Ingress | Direct (/mcp) | 3001 | Node.js 20 (upstream image), SQLite, Debian (direct access) |
 
 ---
 
@@ -48,6 +49,12 @@ cd blinko
 docker build -t blinko-addon .
 docker run -d --name blinko-smoke -p 1111:1111 -v blinko-data:/data blinko-addon
 # Access UI: http://localhost:1111
+
+# FreeLLMAPI (from freellmapi/)
+cd freellmapi
+docker build -t freellmapi-addon .
+docker run -d --name freellmapi-smoke -p 3001:3001 -v freellmapi-data:/data freellmapi-addon
+# Access UI & API: http://localhost:3001 | MCP: http://localhost:3001/mcp
 ```
 
 ---
@@ -80,6 +87,13 @@ docker run -d --name blinko-smoke -p 1111:1111 -v blinko-data:/data blinko-addon
 - **Entrypoint (`run.sh`):** Options → generate `/data/nextauth_secret` → start/verify DB → `npx prisma migrate deploy` + `seed.js` (replicates upstream `start.sh` with error handling) → `node server/index.js` with SIGTERM trap.
 - **No Ingress:** Direct port 1111 only. Arch: amd64 + aarch64 (upstream ships no armv7).
 - **Storage:** `/app/.blinko` is a symlink into `/data/.blinko` so attachments land in snapshots. On sync, re-check upstream `start.sh` for new steps.
+
+### FreeLLMAPI (Node.js / Debian)
+- **Upstream Base Image:** Extends `ghcr.io/tashfeenahmed/freellmapi:v0.15.0` (pinned tag). No source build.
+- **Runtime Stack:** Adds `bash`, `curl`, `python3`, `tzdata`.
+- **Entrypoint (`run.sh`):** Applies options → auto-generates AES-256 encryption key at `/data/.encryption_key` (or uses configured option) → symlinks `/app/server/data` to `/data` → drops privileges to UID `node` via `setpriv` before running `node server/dist/index.js`.
+- **No Ingress:** Direct port 3001 only (dashboard, `/v1` APIs, `/mcp`). Arch: amd64 + aarch64.
+- **Data:** `/data/freeapi.db` (SQLite) + backups and secrets in `/data`.
 
 ---
 

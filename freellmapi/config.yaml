@@ -1,0 +1,35 @@
+name: "FreeLLMAPI"
+description: >-
+  OpenAI-compatible proxy and routing layer aggregating dozens of free LLM
+  providers and hundreds of model endpoints under a unified endpoint with smart fallbacks.
+version: "0.15.0"
+slug: "freellmapi"
+init: false
+arch:
+  - amd64
+  - aarch64
+startup: application
+boot: auto
+ports:
+  3001/tcp: 3001
+ports_description:
+  3001/tcp: "FreeLLMAPI dashboard, /v1 API, and MCP endpoint"
+host_network: false
+apparmor: true
+webui: "http://[HOST]:[PORT:3001]/"
+panel_icon: mdi:robot
+panel_title: "FreeLLMAPI"
+backup: hot
+stage: stable
+
+options:
+  encryption_key: ""
+  proxy_url: ""
+  declarative_config: ""
+  retention_days: 90
+
+schema:
+  encryption_key: password?
+  proxy_url: str?
+  declarative_config: str?
+  retention_days: int?

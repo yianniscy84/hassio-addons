@@ -37,6 +37,14 @@ The memos add-on wraps the pre-built `neosmemo/memos` image. Bump `BUILD_FROM` i
 
 The blinko add-on wraps the pre-built `blinkospace/blinko` image (amd64 + aarch64 only). Bump `BUILD_FROM` in the Dockerfile (and `version` in `config.yaml`) to update.
 
+### FreeLLMAPI (tashfeenahmed/freellmapi)
+
+| Addon | Upstream Version | Addon Version | Last Synced |
+|-------|-----------------|---------------|-------------|
+| `freellmapi/` | v0.15.0 | 0.15.0 | 2026-10-17 |
+
+The freellmapi add-on wraps the pre-built `ghcr.io/tashfeenahmed/freellmapi` image (amd64 + aarch64). Bump `BUILD_FROM` in the Dockerfile (and `version` in `config.yaml`) to update.
+
 ## Active Patches & Upstream PRs
 
 ### Securo

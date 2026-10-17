@@ -35,6 +35,7 @@
 | [**OmniRoute Test**](omniroute-test/) | Test | ![OmniRoute Test Version](https://img.shields.io/badge/dynamic/yaml?label=&query=%24.version&url=https%3A%2F%2Fraw.githubusercontent.com%2Fyianniscy84%2Fhassio-addons%2Fmain%2Fomniroute-test%2Fconfig.yaml&color=orange&style=flat-square) | ❌ No | `20129` (API/UI) | ![aarch64](https://img.shields.io/badge/aarch64-green.svg?style=flat-square&logo=arm) ![amd64](https://img.shields.io/badge/amd64-green.svg?style=flat-square&logo=amd) ![armv7](https://img.shields.io/badge/armv7-green.svg?style=flat-square&logo=arm) | Pre-release test instance of OmniRoute on direct port `20129`. |
 | [**Memos**](memos/) | Stable | ![Memos Version](https://img.shields.io/badge/dynamic/yaml?label=&query=%24.version&url=https%3A%2F%2Fraw.githubusercontent.com%2Fyianniscy84%2Fhassio-addons%2Fmain%2Fmemos%2Fconfig.yaml&color=brightgreen&style=flat-square) | ❌ No | `5230` (Web/API) | ![aarch64](https://img.shields.io/badge/aarch64-green.svg?style=flat-square&logo=arm) ![amd64](https://img.shields.io/badge/amd64-green.svg?style=flat-square&logo=amd) ![armv7](https://img.shields.io/badge/armv7-green.svg?style=flat-square&logo=arm) | Self-hosted note-taking with tags, relations, attachments, and full-text search. |
 | [**Blinko**](blinko/) | Stable | ![Blinko Version](https://img.shields.io/badge/dynamic/yaml?label=&query=%24.version&url=https%3A%2F%2Fraw.githubusercontent.com%2Fyianniscy84%2Fhassio-addons%2Fmain%2Fblinko%2Fconfig.yaml&color=brightgreen&style=flat-square) | ❌ No | `1111` (Web/API) | ![aarch64](https://img.shields.io/badge/aarch64-green.svg?style=flat-square&logo=arm) ![amd64](https://img.shields.io/badge/amd64-green.svg?style=flat-square&logo=amd) | AI-powered card note-taking with Markdown, tags, plugins, and bundled PostgreSQL. |
+| [**FreeLLMAPI**](freellmapi/) | Stable | ![FreeLLMAPI Version](https://img.shields.io/badge/dynamic/yaml?label=&query=%24.version&url=https%3A%2F%2Fraw.githubusercontent.com%2Fyianniscy84%2Fhassio-addons%2Fmain%2Ffreellmapi%2Fconfig.yaml&color=brightgreen&style=flat-square) | ❌ No | `3001` (API/UI) | ![aarch64](https://img.shields.io/badge/aarch64-green.svg?style=flat-square&logo=arm) ![amd64](https://img.shields.io/badge/amd64-green.svg?style=flat-square&logo=amd) | OpenAI-compatible proxy and routing layer aggregating dozens of free LLM providers with smart fallbacks. |
 
 ---
 
@@ -132,6 +133,24 @@ Click the button below to add this repository directly to your Home Assistant in
 - **Works Out of the Box**: Bundled PostgreSQL in `/data` — or point it at your existing PostgreSQL server.
 
 > Upstream project: [blinkospace/blinko](https://github.com/blinkospace/blinko) | [Documentation](blinko/DOCS.md)
+
+---
+
+### [FreeLLMAPI](freellmapi/)
+
+<p align="center">
+  <img src="freellmapi/icon.png" alt="FreeLLMAPI Logo" width="90">
+</p>
+
+**FreeLLMAPI** is an open-source, OpenAI-compatible proxy and routing layer that aggregates free LLM provider tiers and hundreds of model endpoints under a single `/v1` endpoint.
+
+- **Unified Inference Endpoint**: `/v1/chat/completions`, Anthropic `/v1/messages`, Gemini `/v1beta`, and Ollama emulation behind one endpoint.
+- **Intelligent Failover**: Auto-switches between 34+ free provider tiers upon rate limits (429) or upstream downtime.
+- **ChatGPT-Ready MCP Server**: Access inference and provider metrics directly via `/mcp`.
+- **Encrypted Keys**: AES-256-GCM encrypted key storage in SQLite with automated key lifecycle.
+- **Admin Dashboard**: Manage provider keys, customize fallback chains, and monitor token usage analytics.
+
+> Upstream project: [tashfeenahmed/freellmapi](https://github.com/tashfeenahmed/freellmapi) | [Documentation](freellmapi/DOCS.md)
 
 ---
 
