@@ -2,7 +2,7 @@ name: "OmniRoute"
 description: >-
   Free AI gateway: one endpoint, 350+ providers, 1200+ models.
   Configure providers, API keys, and routing through the dashboard after install
-version: "0.3.7"
+version: "0.3.8"
 slug: "omniroute"
 init: false
 arch:

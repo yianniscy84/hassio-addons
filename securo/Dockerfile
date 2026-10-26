@@ -78,7 +78,7 @@ RUN if ! command -v with-contenv >/dev/null 2>&1; then \
       chmod +x /usr/bin/with-contenv; \
     fi
 
-ARG BUILD_VERSION=0.26.0
+ARG BUILD_VERSION=0.34.0
 ARG BUILD_ARCH=amd64
 
 LABEL \

@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.16.8
+
+- Sync with upstream FreeLLMAPI v0.16.8 (from v0.15.0)
+- Upstream Docker base: Node.js 20 to Node.js 24 (Node 20 EOL)
+- New providers: IteraCompute (Qwen3.8-27b), Keenable keyless search, Brave Search
+- New: Host-header allowlist (ALLOWED_HOSTS) for DNS rebinding protection (opt-in, off by default)
+- New: Per-key proxy support, soft budget alerts, keep-alive pings for long-thinking models
+- Fix: Long-reasoning stream early commit prevents client timeouts
+- No breaking changes or database migrations required
+
 ## 0.15.0
 
 - Initial release of the FreeLLMAPI Home Assistant OS add-on.

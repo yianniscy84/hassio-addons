@@ -141,8 +141,14 @@ export default function AccountsPage() {
     onSuccess: (result) => {
       invalidateFinancialQueries(queryClient)
       queryClient.invalidateQueries({ queryKey: ['connections'] })
-      toast.success(t('accounts.syncDone'))
-      const merged = (result as BankConnection & { merged_count?: number })?.merged_count
+      // The provider can throttle the sync (429) and still return success
+      // without pulling anything: say so instead of a false "Sync completed".
+      if (result.sync_outcome === 'rate_limited') {
+        toast.warning(t('accounts.syncRateLimited'))
+      } else {
+        toast.success(t('accounts.syncDone'))
+      }
+      const merged = result?.merged_count
       if (merged && merged > 0) {
         toast.info(t('accounts.mergedCount', { count: merged }))
       }
@@ -152,12 +158,7 @@ export default function AccountsPage() {
       const detail = axios.isAxiosError(err)
         ? err.response?.data?.detail
         : null
-      const code = typeof detail === 'object' ? detail?.code : undefined
-      const raw = typeof detail === 'string' ? detail : detail?.message
-      // A coded failure means the connection needs the user to reconnect, and
-      // `accounts.connectionError` already says that in every locale. The API's
-      // own prose is English-only, so it must not reach the toast for this case.
-      const message = code === 'data_unavailable' ? t('accounts.connectionError') : raw
+      const message = typeof detail === 'string' ? detail : detail?.message
       toast.error(message || t('accounts.syncError'))
     },
   })

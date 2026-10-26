@@ -943,6 +943,7 @@
     "searchPlaceholder": "Buscar transacciones...",
     "clearFilters": "Borrar filtros",
     "exportCsv": "Exportar CSV",
+    "refresh": "Actualizar",
     "exportSelected": "Exportar seleccionadas ({{count}})",
     "exporting": "Exportando...",
     "exportSuccess": "Transacciones exportadas correctamente",
@@ -1158,6 +1159,7 @@
     "confirmDeleteTitle": "¿Eliminar cuenta?",
     "confirmDeleteDesc": "Esta acción es irreversible. También eliminará todas las transacciones, registros de importación y transacciones recurrentes adjuntas a esta cuenta, y desvinculará cualquier objetivo que la estuviera siguiendo.",
     "openingBalance": "saldo inicial",
+    "openingBalanceDescription": "Saldo inicial",
     "notFound": "Cuenta no encontrada.",
     "balance": "Saldo",
     "balanceCreditCard": "Importe adeudado",
@@ -1215,6 +1217,7 @@
     "updated": "Cuenta actualizada",
     "deleted": "Cuenta eliminada",
     "syncDone": "Sincronización completada",
+    "syncRateLimited": "Límite diario del banco alcanzado, no se ha obtenido ningún dato nuevo. Inténtalo más tarde.",
     "syncError": "Error de sincronización",
     "connected": "Banco conectado con éxito",
     "connectError": "Error al conectar el banco",
@@ -1440,7 +1443,6 @@
     "endDate": "Fecha de fin (opcional)",
     "category": "Categoría",
     "account": "Cuenta",
-    "noAccount": "Ninguna",
     "nextOccurrence": "Siguiente",
     "status": "Estado",
     "actions": "Acciones",
@@ -1722,7 +1724,11 @@
     "errors": {
       "invalid_date": "Formato de fecha no válido",
       "no_amount": "Sin importe de entrada o salida",
-      "invalid_amount": "Formato de importe no válido"
+      "invalid_amount": "Formato de importe no válido",
+      "invalid_fx_rate": "Tipo de cambio no válido",
+      "ambiguous_amount": "Entrada y salida con valor",
+      "conflicting_amount": "Campos de importe en conflicto",
+      "invalid_direction": "Indicador de crédito/débito no válido"
     },
     "selectAll": "Seleccionar todo"
   },
@@ -1775,6 +1781,7 @@
       "invalid_date": "fecha ilegible",
       "invalid_quantity": "cantidad ilegible",
       "invalid_price": "precio ilegible",
+      "invalid_fee": "comisión ilegible",
       "invalid_kind": "compra/venta no reconocida",
       "unknown_ticker": "ticker no encontrado por el proveedor de precios",
       "oversell": "venta mayor que la posición"

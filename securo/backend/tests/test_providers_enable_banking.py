@@ -19,12 +19,12 @@ from jose import jwt
 
 from app.core.config import get_settings
 from app.providers.base import (
-    ProviderDataUnavailable,
     ProviderUserActionRequired,
     SessionExpiredError,
     mask_last4,
 )
 from app.providers.enable_banking import (
+    DEFAULT_HISTORY_DAYS,
     FALLBACK_HISTORY_DAYS,
     EnableBankingProvider,
     _account_identifier,
@@ -585,15 +585,15 @@ async def test_refresh_credentials_valid_passes(eb_keys):
     out = await provider.refresh_credentials(creds)
     assert out is creds
 
-@pytest.mark.asyncio
-async def test_get_accounts_raises_data_unavailable_when_every_account_fails(eb_keys):
-    """EB lists accounts but every /details call 400s with ASPSP_ERROR.
 
-    EB's FAQ classifies ASPSP_ERROR as a bank-side failure and says to retry
-    with backoff — it does not mean the consent died. What must NOT happen is
-    returning an empty list: sync would store nothing and leave the connection
-    "active", a silent false success. The provider surfaces the failure, and
-    the retry-vs-escalate decision belongs to the sync layer.
+@pytest.mark.asyncio
+async def test_get_accounts_raises_session_expired_when_details_unauthorized(eb_keys):
+    """A 401 on one account's /details kills the whole consent, not just it.
+
+    ``_request`` maps 401/410 to SessionExpiredError precisely because EB's
+    access token is session-scoped: the consent is dead for every account. The
+    per-account ``except httpx.HTTPError`` must not swallow it; doing so stored
+    an empty account list and left the connection "active" (issue #1013).
     """
     provider = EnableBankingProvider()
 
@@ -603,81 +603,24 @@ async def test_get_accounts_raises_data_unavailable_when_every_account_fails(eb_
                 "session_id": "sess-x",
                 "accounts_data": [{"uid": "acc-1"}, {"uid": "acc-2"}],
             })
+        # Anchored on purpose: ``endswith`` would also match a deeper path such
+        # as /accounts/a/b/details, and ``.+`` in the middle matches it too.
         if re.fullmatch(r"/accounts/[^/]+/details", request.url.path):
-            return httpx.Response(400, json={
-                "code": 400,
-                "message": "Error interacting with ASPSP",
-                "detail": {
-                    "message": "Unauthorized, authentication failure",
-                    "error_name": "HttpException",
-                    "error_data": {},
-                },
-                "error": "ASPSP_ERROR",
-            })
+            return httpx.Response(401, json={"code": 401, "error": "INVALID_TOKEN"})
         raise AssertionError(f"unexpected path {request.url.path}")
 
     with _patch_client(provider, handler):
-        with pytest.raises(ProviderDataUnavailable):
+        with pytest.raises(SessionExpiredError):
             await provider.get_accounts(_CREDENTIALS)
 
 
 @pytest.mark.asyncio
-async def test_get_accounts_returns_empty_when_session_reports_no_accounts(eb_keys):
-    """A session with no linked accounts is a legitimate empty result."""
-    provider = EnableBankingProvider()
-
-    def handler(request: httpx.Request) -> httpx.Response:
-        if request.url.path == "/sessions/sess-x":
-            return httpx.Response(200, json={"session_id": "sess-x", "accounts_data": []})
-        raise AssertionError(f"unexpected path {request.url.path}")
-
-    with _patch_client(provider, handler):
-        assert await provider.get_accounts(_CREDENTIALS) == []
-
-
-@pytest.mark.asyncio
-async def test_get_accounts_keeps_working_accounts_when_one_fails(eb_keys):
-    """One failing account must not discard the accounts that did resolve."""
-    provider = EnableBankingProvider()
-
-    def handler(request: httpx.Request) -> httpx.Response:
-        path = request.url.path
-        if path == "/sessions/sess-x":
-            return httpx.Response(200, json={
-                "session_id": "sess-x",
-                "accounts_data": [{"uid": "acc-1"}, {"uid": "acc-2"}],
-            })
-        if path == "/accounts/acc-2/details":
-            return httpx.Response(200, json={
-                "uid": "acc-2",
-                "display_name": "Good account",
-                "currency": "EUR",
-                "cash_account_type": "CACC",
-            })
-        if path == "/accounts/acc-2/balances":
-            return httpx.Response(200, json={"balances": []})
-        if re.fullmatch(r"/accounts/[^/]+/details", path):
-            return httpx.Response(400, json={
-                "code": 400,
-                "message": "Error interacting with ASPSP",
-                "error": "ASPSP_ERROR",
-                "detail": None,
-            })
-        raise AssertionError(f"unexpected path {path}")
-
-    with _patch_client(provider, handler):
-        accounts = await provider.get_accounts(_CREDENTIALS)
-
-    assert [a.external_id for a in accounts] == ["acc-2"]
-
-
-@pytest.mark.asyncio
-async def test_get_accounts_exposes_stable_identification_hash(eb_keys):
+async def test_get_accounts_exposes_stable_external_id(eb_keys):
     """EB's `uid` is session-scoped; `identification_hash` is the stable key.
 
     Reauthorising mints a new session, so the same real account comes back with
     a new uid. The hash is what survives that, and it already rides in the
-    /sessions payload this method fetches — carry it out on AccountData so the
+    /sessions payload this method fetches. Carry it out on AccountData so the
     sync can re-match the existing row instead of creating a duplicate.
     """
     provider = EnableBankingProvider()
@@ -711,7 +654,7 @@ async def test_get_accounts_exposes_stable_identification_hash(eb_keys):
 
     assert len(accounts) == 1
     assert accounts[0].external_id == "acc-1"
-    assert accounts[0].stable_id == "hash-1"
+    assert accounts[0].stable_external_id == "hash-1"
 
 
 
@@ -901,6 +844,24 @@ def test_build_transaction_treats_entry_reference_zero_as_missing():
     assert tx1.external_id != tx2.external_id
 
 
+def test_txn_fingerprint_includes_transaction_date():
+    raw1 = {
+        "transaction_amount": {"amount": "20.00", "currency": "EUR"},
+        "credit_debit_indicator": "DBIT",
+        "transaction_date": "2026-08-29",
+    }
+    raw2 = {
+        "transaction_amount": {"amount": "20.00", "currency": "EUR"},
+        "credit_debit_indicator": "DBIT",
+        "transaction_date": "2026-08-30",
+    }
+    fp1 = _txn_fingerprint("acc-1", raw1)
+    fp2 = _txn_fingerprint("acc-1", raw2)
+    assert fp1 != fp2
+
+
+
+
 def test_txn_fingerprint_ignores_session_account_uid():
     """Reauthorization mints a new EB session and a new account uid.
 
@@ -938,21 +899,3 @@ def test_txn_fingerprint_differs_across_accounts_with_distinct_counterparties():
     one = dict(base, creditor_account={"iban": "DE11111111111111111111"})
     two = dict(base, creditor_account={"iban": "DE22222222222222222222"})
     assert _txn_fingerprint("acc", one) != _txn_fingerprint("acc", two)
-
-
-def test_txn_fingerprint_includes_transaction_date():
-    raw1 = {
-        "transaction_amount": {"amount": "20.00", "currency": "EUR"},
-        "credit_debit_indicator": "DBIT",
-        "transaction_date": "2026-08-29",
-    }
-    raw2 = {
-        "transaction_amount": {"amount": "20.00", "currency": "EUR"},
-        "credit_debit_indicator": "DBIT",
-        "transaction_date": "2026-08-30",
-    }
-    fp1 = _txn_fingerprint("acc-1", raw1)
-    fp2 = _txn_fingerprint("acc-1", raw2)
-    assert fp1 != fp2
-
-

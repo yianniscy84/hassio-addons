@@ -14,7 +14,7 @@ Repository URL: `https://github.com/yianniscy84/hassio-addons`
 | [`omniroute/`](omniroute/) | Production | `omniroute` | `diegosouzapw/OmniRoute` | No Ingress | — | 20128 | Node.js (upstream image), Redis, Debian (direct access) |
 | [`memos/`](memos/) | Production | `memos` | `usememos/memos` | No Ingress (port 5230) | — | 5230 | Go (upstream image), SQLite/PostgreSQL, Alpine (direct access) |
 | [`blinko/`](blinko/) | Production | `blinko` | `blinkospace/blinko` | No Ingress (port 1111) | — | 1111 | Node.js (upstream image), bundled PostgreSQL, Alpine (direct access) |
-| [`freellmapi/`](freellmapi/) | Production | `freellmapi` | `tashfeenahmed/freellmapi` | No Ingress | Direct (/mcp) | 3001 | Node.js 20 (upstream image), SQLite, Debian (direct access) |
+| [`freellmapi/`](freellmapi/) | Production | `freellmapi` | `tashfeenahmed/freellmapi` | No Ingress | Direct (/mcp) | 3001 | Node.js 24 (upstream image), SQLite, Debian (direct access) |
 
 ---
 
@@ -88,7 +88,7 @@ docker run -d --name freellmapi-smoke -p 3001:3001 -v freellmapi-data:/data free
 - **Storage:** `/app/.blinko` is a symlink into `/data/.blinko` so attachments land in snapshots. On sync, re-check upstream `start.sh` for new steps.
 
 ### FreeLLMAPI (Node.js / Debian)
-- **Upstream Base Image:** Extends `ghcr.io/tashfeenahmed/freellmapi:v0.15.0` (pinned tag). No source build.
+- **Upstream Base Image:** Extends `ghcr.io/tashfeenahmed/freellmapi:v0.16.8` (pinned tag). No source build.
 - **Runtime Stack:** Adds `bash`, `curl`, `python3`, `tzdata`.
 - **Entrypoint (`run.sh`):** Applies options → auto-generates AES-256 encryption key at `/data/.encryption_key` (or uses configured option) → symlinks `/app/server/data` to `/data` → drops privileges to UID `node` via `setpriv` before running `node server/dist/index.js`.
 - **No Ingress:** Direct port 3001 only (dashboard, `/v1` APIs, `/mcp`). Arch: amd64 + aarch64.
@@ -115,8 +115,7 @@ See [`UPSTREAM.md`](UPSTREAM.md) for version matrix and sync tracking.
    - If merged upstream, remove obsolete patch file from `patches/securo/` and update `UPSTREAM.md`.
    - **Re-apply on top of upstream, never as a replacement.** The add-on also carries
      changes adopted early from still-open upstream PRs (see "Superseded by upstream
-     work we adopted early" in `UPSTREAM.md` — currently PR #1074, which added
-     `accounts.stable_id` and migration `097`). Those live in the copied source and
+     work we adopted early" in `UPSTREAM.md` — PR #1106 in v0.16.5 merged `accounts.stable_external_id` and migration `097_account_stable_external_id`). Those live in the copied source and
      are deliberately *not* in any patch file. Check whether the incoming upstream
      release now contains them before applying, or they will be duplicated.
 4. Regenerate lockfile if backend dependencies changed: `cd backend && uv lock`.

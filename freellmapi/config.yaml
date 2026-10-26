@@ -2,7 +2,7 @@ name: "FreeLLMAPI"
 description: >-
   OpenAI-compatible proxy and routing layer aggregating dozens of free LLM
   providers and hundreds of model endpoints under a unified endpoint with smart fallbacks.
-version: "0.15.0"
+version: "0.16.8"
 slug: "freellmapi"
 init: false
 arch:

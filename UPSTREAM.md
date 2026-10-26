@@ -8,7 +8,7 @@ This file tracks upstream versions for each addon.
 
 | Addon | Upstream Version | Addon Version | Last Synced |
 |-------|-----------------|---------------|-------------|
-| `securo/` | v0.16.4 | 0.33.0 | 2026-10-17 |
+| `securo/` | v0.16.5 | 0.34.0 | 2026-10-26 |
 
 The Securo test add-on (`securo-test/`) was removed on 2026-10-04; `securo/` is now the only tracked Securo add-on and is validated directly via `docker build` + smoke test before release.
 
@@ -16,7 +16,7 @@ The Securo test add-on (`securo-test/`) was removed on 2026-10-04; `securo/` is 
 
 | Addon | Upstream Version | Addon Version | Last Synced |
 |-------|-----------------|---------------|-------------|
-| `omniroute/` | v3.8.50 | 0.3.7 | 2026-10-17 |
+| `omniroute/` | v3.8.52 | 0.3.8 | 2026-10-26 |
 
 The OmniRoute test add-on (`omniroute-test/`) was removed on 2026-10-17; `omniroute/` is now the only tracked OmniRoute add-on and is validated directly via `docker build` + smoke test before release. Clones from upstream Git tags. Bump `OMNIROUTE_VERSION` in the Dockerfile to update.
 
@@ -40,7 +40,7 @@ The blinko add-on wraps the pre-built `blinkospace/blinko` image (amd64 + aarch6
 
 | Addon | Upstream Version | Addon Version | Last Synced |
 |-------|-----------------|---------------|-------------|
-| `freellmapi/` | v0.15.0 | 0.15.0 | 2026-10-17 |
+| `freellmapi/` | v0.16.8 | 0.16.8 | 2026-10-26 |
 
 The freellmapi add-on wraps the pre-built `ghcr.io/tashfeenahmed/freellmapi` image (amd64 + aarch64). Bump `BUILD_FROM` in the Dockerfile (and `version` in `config.yaml`) to update.
 
@@ -52,25 +52,14 @@ The freellmapi add-on wraps the pre-built `ghcr.io/tashfeenahmed/freellmapi` ima
 |---|---|---|---|
 | [`patches/securo/0002-enable-banking-connection-fingerprint-history.patch`](patches/securo/0002-enable-banking-connection-fingerprint-history.patch) | add-on only (no upstream PR) | `backend/app/core/config.py`<br>`backend/app/providers/enable_banking.py`<br>`backend/app/services/connection_service.py`<br>`backend/tests/test_connection_service.py`<br>`backend/tests/test_providers_enable_banking.py` | Active |
 
-### Superseded by upstream work we adopted early
+### Merged Upstream (PR #1106 in v0.16.5)
 
-Upstream's [PR #1074](https://github.com/securo-finance/securo/pull/1074)
-("fix(enable-banking): stop silent empty syncs and reauth duplicates") fixes the same
-reauthorisation-duplication defect as our retired patch `0001`. It was still **open**
-(2026-10-03) at the time of the v0.16.3 sync, so its single commit `53b4269b` was
-cherry-picked onto v0.16.3 and is now carried in the add-on source directly:
+Upstream merged PR #1106 (superseding open PR #1074) in v0.16.5:
+- `accounts.stable_external_id` (migration `097_account_stable_external_id.py`) populated from Enable Banking's `identification_hash`
+- Matched on in `_find_existing_connected_account`
+- `run.sh` contains an automatic PostgreSQL rename for legacy `accounts.stable_id` to `accounts.stable_external_id` for installations upgraded from add-on 0.32/0.33.
 
-- `accounts.stable_id` (migration `097`) populated from Enable Banking's
-  `identification_hash`, matched on in `_find_existing_connected_account`
-- `ProviderDataUnavailable` raised on a bank-side `ASPSP_ERROR` instead of
-  reporting a successful empty sync
-
-**Consequence for the next sync:** when #1074 merges, do **not** re-apply anything for
-`stable_id` — it will already be in the copied upstream source, and doing so would
-double-apply. Patch `0002` should shrink to drop whatever #1074 absorbs. Verify by
-diffing `backend/app/models/account.py` for `stable_id` before re-applying.
-
-`0002` retains what #1074 does not cover:
+Patch `0002` was rebased on v0.16.5 to use `stable_external_id` and retains what upstream does not cover:
 
 | Fix | Rationale |
 |---|---|

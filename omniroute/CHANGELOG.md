@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.8
+
+- Sync with upstream OmniRoute v3.8.52 (`:latest` image)
+- Upstream: 375 providers, 1,475 model IDs, per-model concurrency caps, smart reasoning field strip/retry
+- Fix stale BUILD_VERSION in Dockerfile
+
 ## 0.3.7
 
 - Add `webui` directive to restore "Open Web UI" button in Home Assistant

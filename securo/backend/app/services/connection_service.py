@@ -4,7 +4,7 @@ import re
 import uuid
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal, InvalidOperation
-from typing import Optional
+from typing import Literal, Optional
 
 from sqlalchemy import delete, exists, func, or_, select, update
 from sqlalchemy.exc import IntegrityError
@@ -30,7 +30,6 @@ from app.providers import get_provider
 from app.providers.base import (
     AccountData,
     HoldingData,
-    ProviderDataUnavailable,
     ProviderNotConfiguredError,
     ProviderRateLimited,
     ProviderUserActionRequired,
@@ -1348,14 +1347,14 @@ async def _cleanup_legacy_duplicate_accounts(
     Those releases shipped a reauth fix that matched on masked_number +
     currency, which still let a reauthorization insert a second row when the
     bank also rotated the account type. `_find_existing_connected_account`
-    now keys on `stable_id` (migration 097) and prevents new duplicates, but
+    now keys on `stable_external_id` (migration 097) and prevents new duplicates, but
     rows already duplicated in the database need consolidating once.
 
     The survivor is picked deterministically by id so repeated syncs never
     oscillate between rows, and it keeps its UUID, so rules, transactions and
     opening balances stay attached to the account the user knows. Only
     genuinely same-identity rows are merged: equal currency, equal masked
-    suffix and — once 097 has backfilled — an equal non-null stable_id.
+    suffix and — once 097 has backfilled — an equal non-null stable_external_id.
     """
     accounts = list(
         (
@@ -1368,7 +1367,7 @@ async def _cleanup_legacy_duplicate_accounts(
     for account in accounts:
         if not account.masked_number or not account.currency:
             continue
-        key = (account.currency, account.masked_number, account.stable_id or "")
+        key = (account.currency, account.masked_number, account.stable_external_id or "")
         by_identity.setdefault(key, []).append(account)
 
     for group in by_identity.values():
@@ -1420,6 +1419,7 @@ async def _find_existing_connected_account(
     acc_data: AccountData,
     institution: Optional[Institution],
     incoming_external_ids: set[str],
+    incoming_institution_external_ids: frozenset[str] = frozenset(),
 ) -> Optional[Account]:
     """Find an existing account for incoming provider account data.
 
@@ -1439,41 +1439,43 @@ async def _find_existing_connected_account(
         return account
 
     # The provider re-keyed this account. Enable Banking issues a `uid` scoped to
-    # one session, so reauthorising changes it while `stable_id` (the
-    # identification_hash) survives. Rebind the existing row — keeping its
-    # transactions, rules and name overrides — instead of inserting a duplicate.
+    # one session, so reauthorising changes it while `stable_external_id` (the
+    # identification_hash) survives. Rebind the existing row, keeping its
+    # transactions, rules and name overrides, instead of inserting a duplicate.
     # EB does not guarantee the hash is unique, so require exactly one unclaimed
     # candidate: a row another incoming account already took in this run carries
     # an external_id that is in the batch, and adopting it a second time would
     # put both transaction feeds on one account.id.
-    if acc_data.stable_id:
+    if acc_data.stable_external_id:
         stable_rows = (await session.execute(
             select(Account).where(
                 Account.connection_id == connection.id,
-                Account.stable_id == acc_data.stable_id,
+                Account.stable_external_id == acc_data.stable_external_id,
             )
         )).scalars().all()
         stable_rows = [
             row for row in stable_rows if row.external_id not in incoming_external_ids
         ]
+        if len(stable_rows) > 1:
+            return None
         if len(stable_rows) == 1:
             stable_rows[0].external_id = acc_data.external_id
             return stable_rows[0]
 
-    # Last resort for rows that predate `stable_id` (added by migration 097, and
-    # only ever backfilled by a *successful* sync — which a user whose bank was
-    # failing never had). The masked identifier is the closest thing to an
-    # account number we keep. Two guards, both fail-closed: a single candidate
+    # Last resort for rows that predate `stable_external_id` (added by migration
+    # 097, and only ever backfilled by a *successful* sync, which a user whose
+    # bank was failing never had). The masked identifier is the closest thing to
+    # an account number we keep. Two guards, both fail-closed: a single candidate
     # (a shared last-4 must never merge two accounts), and candidates limited to
-    # rows with no stable id — a row that is already identified is a different
+    # rows with no stable id: a row that is already identified is a different
     # account, so adopting it would overwrite its identity and mix histories.
-    if acc_data.masked_number:
+    if connection.provider == "enable_banking" and acc_data.masked_number:
         masked_rows = (await session.execute(
             select(Account).where(
                 Account.connection_id == connection.id,
                 Account.masked_number == acc_data.masked_number,
                 Account.currency == acc_data.currency,
-                Account.stable_id.is_(None),
+                Account.stable_external_id.is_(None),
             )
         )).scalars().all()
         masked_rows = [
@@ -1507,6 +1509,29 @@ async def _find_existing_connected_account(
             candidate for candidate in candidates
             if candidate.institution_id == institution.id
         ]
+        if not matched_institution and candidates:
+            # Re-linking a bank in SimpleFIN Bridge can send it under a new
+            # conn_id, so _resolve_institution just minted a fresh row while
+            # the account still points at the old, same-named one.
+            #
+            # Only a conn_id this pull no longer carries can have been
+            # re-linked. A bank still listed under its own conn_id was not,
+            # so a same-named one arriving beside it is a second login at
+            # that bank (SimpleFIN has no account number to tell them apart,
+            # and two logins at one bank share its name). Adopting its
+            # account would point the user's existing row, display name and
+            # history at the other login's feed.
+            same_name_ids = set((await session.execute(
+                select(Institution.id).where(
+                    Institution.connection_id == connection.id,
+                    Institution.name == institution.name,
+                    Institution.external_id.not_in(incoming_institution_external_ids),
+                )
+            )).scalars().all())
+            matched_institution = [
+                candidate for candidate in candidates
+                if candidate.institution_id in same_name_ids
+            ]
         if matched_institution:
             candidates = matched_institution
         else:
@@ -2049,13 +2074,15 @@ async def _sync_credit_card_bills(
     return by_external_id
 
 
-# How many consecutive "provider returned no usable data" syncs a connection may
-# accumulate before it is flagged for a user-visible reconnect. EB's own FAQ
-# says its generic ASPSP error should be retried with backoff, so a single
-# failure must not flip the connection to "error" — but retrying forever would
-# hide a bank that is genuinely broken.
-SYNC_FAILURE_ESCALATION_THRESHOLD = 3
-_SYNC_FAILURE_COUNT_KEY = "sync_failures"
+# Outcome of a sync that completed without raising, reported to the caller
+# so the UI can tell "data read" from "the provider throttled us and nothing
+# was pulled" (issue #736). "refreshed" covers the normal path (the data may
+# be the provider's cached copy; whether a fresh pull happened is the
+# provider's own semantics). "rate_limited" means the provider returned a
+# 429: nothing was pulled and last_sync_at was left untouched so the next
+# sync retries the same window. Errors (expired session, user action
+# required, generic failure) still propagate as exceptions.
+SyncOutcome = Literal["refreshed", "rate_limited"]
 
 
 async def sync_connection(
@@ -2064,7 +2091,7 @@ async def sync_connection(
     workspace_id: uuid.UUID,
     requesting_user_id: uuid.UUID,
     trigger_provider_refresh: bool = False,
-) -> tuple[BankConnection, int]:
+) -> tuple[BankConnection, int, SyncOutcome]:
     connection = await get_connection(
         session, connection_id, workspace_id, for_update=True
     )
@@ -2157,6 +2184,11 @@ async def sync_connection(
         await _cleanup_legacy_duplicate_accounts(session, connection)
         accounts_data = await provider.get_accounts(credentials)
         incoming_external_ids = {acc.external_id for acc in accounts_data}
+        incoming_institution_external_ids = frozenset(
+            acc.institution_external_id
+            for acc in accounts_data
+            if acc.institution_external_id
+        )
         institution_cache: dict[str, Institution] = {}
         for acc_data in accounts_data:
             institution = await _resolve_institution(
@@ -2168,6 +2200,7 @@ async def sync_connection(
                 acc_data,
                 institution,
                 incoming_external_ids,
+                incoming_institution_external_ids,
             )
 
             if account is not None:
@@ -2219,8 +2252,8 @@ async def sync_connection(
                 # Backfills existing accounts on their next sync, same rule as
                 # masked_number: provider-owned, and a payload that omits it
                 # must not blank a value that is already known.
-                if acc_data.stable_id is not None:
-                    account.stable_id = acc_data.stable_id
+                if acc_data.stable_external_id is not None:
+                    account.stable_external_id = acc_data.stable_external_id
                 # Backfills existing accounts on next sync (issue #345).
                 if institution is not None:
                     account.institution_id = institution.id
@@ -2259,7 +2292,7 @@ async def sync_connection(
                     workspace_id=workspace_id,
                     connection_id=connection.id,
                     external_id=acc_data.external_id,
-                    stable_id=acc_data.stable_id,
+                    stable_external_id=acc_data.stable_external_id,
                     name=acc_data.name,
                     display_name=institution.name if institution else None,
                     masked_number=acc_data.masked_number,
@@ -2638,16 +2671,9 @@ async def sync_connection(
             connection.status = "error"
         else:
             connection.status = "active"
-        # A successful run clears the transient-failure streak, so an old
-        # failure can't push a now-healthy connection over the threshold.
-        if (connection.settings or {}).get(_SYNC_FAILURE_COUNT_KEY):
-            connection.settings = {
-                **(connection.settings or {}),
-                _SYNC_FAILURE_COUNT_KEY: 0,
-            }
         await session.commit()
         await session.refresh(connection)
-        return connection, merged_count
+        return connection, merged_count, "refreshed"
 
     except SessionExpiredError:
         # Provider consent expired — distinct from a generic error so the UI
@@ -2683,43 +2709,9 @@ async def sync_connection(
         # to the one we already hold rather than raising: re-raising here would
         # escape as a 500, which is exactly what this handler exists to avoid.
         refreshed = await session.get(BankConnection, connection_id)
-        return refreshed or connection, 0
-    except ProviderDataUnavailable as exc:
-        # The bank/aggregator served no usable account this run, while the
-        # consent itself may still be valid (EB keeps the session AUTHORIZED and
-        # answers ASPSP_ERROR, which its FAQ says to retry with backoff). Retry
-        # a few cycles; only once the failures persist do we send the user to a
-        # reconnect they may not need.
-        await session.rollback()
-        failures = 0
-        async with session.begin():
-            conn = await session.get(BankConnection, connection_id)
-            if conn is not None:
-                settings = dict(conn.settings or {})
-                failures = int(settings.get(_SYNC_FAILURE_COUNT_KEY) or 0) + 1
-                settings[_SYNC_FAILURE_COUNT_KEY] = failures
-                # Rebind instead of mutating in place: a JSON column only
-                # marks itself dirty on attribute reassignment.
-                conn.settings = settings
-                if failures >= SYNC_FAILURE_ESCALATION_THRESHOLD:
-                    conn.status = "error"
-                elif conn.status != "expired":
-                    conn.status = "active"
-        if failures >= SYNC_FAILURE_ESCALATION_THRESHOLD:
-            raise ProviderUserActionRequired(
-                "The bank rejected every account request for this connection "
-                f"{failures} syncs in a row. Reconnect to re-authorise.",
-                code="data_unavailable",
-            ) from exc
-        logger.warning(
-            "Provider returned no usable data for connection %s (failure %d/%d); "
-            "leaving it active so a later sync retries",
-            connection_id,
-            failures,
-            SYNC_FAILURE_ESCALATION_THRESHOLD,
-        )
-        refreshed = await session.get(BankConnection, connection_id)
-        return refreshed or connection, 0
+        # Report "rate_limited" so the caller (manual sync endpoint, UI) knows
+        # no fresh data was pulled and can say so instead of a success toast.
+        return refreshed or connection, 0, "rate_limited"
     except Exception:
         # Mark connection as errored so UI shows reconnect banner
         await session.rollback()

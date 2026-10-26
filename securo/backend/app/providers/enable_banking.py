@@ -30,7 +30,6 @@ from app.providers.base import (
     ConnectionData,
     InstitutionData,
     InstitutionListData,
-    ProviderDataUnavailable,
     ProviderRateLimited,
     ProviderUserActionRequired,
     SessionExpiredError,
@@ -502,7 +501,7 @@ class EnableBankingProvider(BankProvider):
         return None
 
     async def _build_account(
-        self, raw: dict, stable_id: Optional[str] = None
+        self, raw: dict, stable_external_id: Optional[str] = None
     ) -> AccountData:
         uid = raw.get("uid") or raw.get("account_uid") or ""
         currency = raw.get("currency") or "EUR"
@@ -532,7 +531,7 @@ class EnableBankingProvider(BankProvider):
             masked_number=mask_last4(_account_identifier(raw)),
             # From the session payload: `uid` is scoped to one session, this
             # hash is what lets a later session find the same account again.
-            stable_id=stable_id,
+            stable_external_id=stable_external_id,
         )
 
     # ----- account / transaction fetches -----
@@ -575,9 +574,9 @@ class EnableBankingProvider(BankProvider):
         uids = self._account_uids(data)
         # EB keys each account by a uid scoped to this session; the
         # identification_hash is the id that survives a reauthorisation. It comes
-        # in the same payload we just fetched, so carry it through — otherwise a
+        # in the same payload we just fetched, so carry it through; otherwise a
         # reconnect re-keys every account and the sync duplicates them all.
-        stable_ids = {
+        stable_external_ids = {
             entry.get("uid"): entry.get("identification_hash")
             for entry in (data.get("accounts_data") or [])
             if isinstance(entry, dict) and entry.get("uid")
@@ -596,18 +595,7 @@ class EnableBankingProvider(BankProvider):
                 # here: a dead consent is global, never per-account.
                 logger.warning("Failed to fetch details for account %s: %s", uid, exc)
                 continue
-            result.append(await self._build_account(details, stable_ids.get(uid)))
-        if uids and not result:
-            # EB listed accounts but not one could be read. Returning [] would
-            # make sync store "0 accounts" and leave the connection "active" —
-            # a silent false success. EB's FAQ treats ASPSP_ERROR (which is
-            # exactly what this looks like) as a bank-side failure to retry with
-            # backoff, so surface it as transient and let the sync layer decide
-            # when to stop retrying.
-            raise ProviderDataUnavailable(
-                f"Enable Banking returned no usable data for any of the "
-                f"{len(uids)} account(s) on session {session_id}"
-            )
+            result.append(await self._build_account(details, stable_external_ids.get(uid)))
         return result
 
     async def get_transactions(

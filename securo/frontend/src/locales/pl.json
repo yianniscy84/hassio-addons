@@ -955,6 +955,7 @@
     "searchPlaceholder": "Szukaj transakcji...",
     "clearFilters": "Wyczyść filtry",
     "exportCsv": "Eksportuj CSV",
+    "refresh": "Odśwież",
     "exportSelected_one": "Eksportuj zaznaczone ({{count}})",
     "exportSelected_few": "Eksportuj zaznaczone ({{count}})",
     "exportSelected_many": "Eksportuj zaznaczone ({{count}})",
@@ -1197,6 +1198,7 @@
     "confirmDeleteTitle": "Usunąć konto?",
     "confirmDeleteDesc": "Ta operacja jest nieodwracalna. Usunie również każdą transakcję, rekord importu i transakcję cykliczną powiązaną z tym kontem oraz odłączy wszelkie cele, które je śledziły.",
     "openingBalance": "saldo początkowe",
+    "openingBalanceDescription": "Saldo początkowe",
     "notFound": "Nie znaleziono konta.",
     "balance": "Saldo",
     "balanceCreditCard": "Kwota zadłużenia",
@@ -1261,6 +1263,7 @@
     "updated": "Zaktualizowano konto",
     "deleted": "Usunięto konto",
     "syncDone": "Synchronizacja zakończona",
+    "syncRateLimited": "Osiągnięto dzienny limit banku, nie pobrano nowych danych. Spróbuj ponownie później.",
     "syncError": "Synchronizacja nie powiodła się",
     "connected": "Pomyślnie połączono bank",
     "connectError": "Nie udało się połączyć banku",
@@ -1495,7 +1498,6 @@
     "endDate": "Data zakończenia (opcjonalnie)",
     "category": "Kategoria",
     "account": "Konto",
-    "noAccount": "Brak",
     "nextOccurrence": "Następna",
     "status": "Status",
     "actions": "Akcje",
@@ -1807,7 +1809,11 @@
     "errors": {
       "invalid_date": "Nieprawidłowy format daty",
       "no_amount": "Brak kwoty wpływu lub wypływu",
-      "invalid_amount": "Nieprawidłowy format kwoty"
+      "invalid_amount": "Nieprawidłowy format kwoty",
+      "invalid_fx_rate": "Nieprawidłowy kurs walutowy",
+      "ambiguous_amount": "Wpływ i wypływ uzupełnione",
+      "conflicting_amount": "Konfliktowe pola kwot",
+      "invalid_direction": "Nieprawidłowy wskaźnik uznania/obciążenia"
     },
     "selectAll": "Zaznacz wszystko"
   },
@@ -1860,6 +1866,7 @@
       "invalid_date": "nieczytelna data",
       "invalid_quantity": "nieczytelna ilość",
       "invalid_price": "nieczytelna cena",
+      "invalid_fee": "nieczytelna prowizja",
       "invalid_kind": "nierozpoznane kupno/sprzedaż",
       "unknown_ticker": "ticker nieznany dostawcy notowań",
       "oversell": "sprzedaż większa niż pozycja"

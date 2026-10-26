@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.34.0
+
+- Sync with upstream Securo v0.16.5
+- Upstream: Fix Enable Banking duplicate account creation on reauthorization via stable external ID matching (PR #1106, superseding early-adopted PR #1074)
+- Upstream: Import improvements — report malformed QIF and CAMT records in preview, stop guessing on bad CSV amount, rate, fee and date cells
+- Upstream: Transaction improvements — require explicit account in new transaction form, sync list across browser tabs on change, sort by converted amount
+- Upstream: Account & reports improvements — server-computed account page balances, hold card limit for future-dated charges, validate custom date ranges against calendar, keep closed account history in period reports
+- Upstream: Currency support — add Hong Kong dollar (HKD) and New Taiwan dollar (TWD)
+- Upstream: Market prices & Pluggy — normalize GBp/ZAc prices in batch refresh, date future installments in billed month, avoid marking positions sold on stale withdrawal status
+- Upstream: PWA support — web app manifest and icons for installed PWAs
+- Addon: Rebase Patch 0002 for upstream v0.16.5 (re-keys legacy `stable_id` references to official `stable_external_id`)
+- Addon: Add automatic DB migration in `run.sh` to rename legacy `stable_id` to `stable_external_id` for existing installations
+- Addon: Fix stale `BUILD_VERSION` in Dockerfile
+
 ## 0.33.0
 
 - Sync with upstream Securo v0.16.4
