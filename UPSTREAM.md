@@ -8,7 +8,7 @@ This file tracks upstream versions for each addon.
 
 | Addon | Upstream Version | Addon Version | Last Synced |
 |-------|-----------------|---------------|-------------|
-| `securo/` | v0.16.5 | 0.34.0 | 2026-10-26 |
+| `securo/` | v0.16.5 | 0.34.1 | 2026-10-26 |
 
 The Securo test add-on (`securo-test/`) was removed on 2026-10-04; `securo/` is now the only tracked Securo add-on and is validated directly via `docker build` + smoke test before release.
 

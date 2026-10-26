@@ -222,8 +222,6 @@ bashio::log.info "Redis is ready."
 # --------------------------------------------------------------------------
 bashio::log.info "Running database migrations..."
 cd "${APP_DIR}"
-# Rename legacy stable_id column to stable_external_id if present (from 0.32/0.33 early adoption)
-su -s /bin/sh postgres -c "psql -U postgres -d securo -c \"DO \$\$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='accounts' AND column_name='stable_id') AND NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='accounts' AND column_name='stable_external_id') THEN ALTER TABLE accounts RENAME COLUMN stable_id TO stable_external_id; END IF; END \$\$;\"" 2>/dev/null || true
 python -m alembic upgrade head
 bashio::log.info "Migrations complete."
 

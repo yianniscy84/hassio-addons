@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.34.1
+
+- Fix: Add Alembic migration 098 to rename legacy `accounts.stable_id` to `accounts.stable_external_id` for existing installations upgrading from add-on 0.32/0.33
+
 ## 0.34.0
 
 - Sync with upstream Securo v0.16.5
