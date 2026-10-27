@@ -1,7 +1,6 @@
 import { lazy, Suspense } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
-import { basename } from '@/lib/basename'
 import { Toaster } from '@/components/ui/sonner'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { ThemeProvider } from '@/components/theme-provider'
@@ -82,7 +81,7 @@ function App() {
       <QueryClientProvider client={queryClient}>
         <CrossTabRefresh />
         <TooltipProvider>
-        <BrowserRouter basename={basename}>
+        <BrowserRouter>
           <AuthProvider>
             <WorkspaceProvider>
             <Suspense fallback={<LoadingFallback />}>

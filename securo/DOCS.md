@@ -40,6 +40,9 @@ Configure one or more providers to enable automatic bank synchronization:
 - `simplefin_enabled` — Set to `true` to enable SimpleFIN
 - `simplefin_api_url` — Defaults to sandbox; use `bridge.simplefin.org` for production
 
+#### Sync Settings
+- `bank_sync_min_interval_hours` — Minimum hours between automatic bank sync runs (default: `4`, min: `1`, max: `168`)
+
 ### OIDC (Optional)
 
 Delegate login to an external OIDC provider:
@@ -78,18 +81,16 @@ MCP is the same feature as [upstream Securo](https://github.com/securo-finance/s
 | `agents_openai_compat_base_url` | OpenAI-compatible API base URL |
 | `agents_openai_compat_api_key` | OpenAI-compatible API key |
 
-Set `frontend_url` to the URL you use for the web UI (not HA ingress), so the External MCP panel shows a reachable endpoint.
+Set `frontend_url` to the URL you use for the web UI (e.g. `http://<ha-host>:8080`), so the External MCP panel shows a reachable endpoint.
 
 #### Connect an MCP client
 
-1. Map **port 8765** (and/or use `/mcp` on the mapped web port 80) in the addon Network settings.
-2. Open Securo (sidebar or `http://<ha-host>:80`), go to **Agents → Connections → External MCP access**, and generate a token. Copy it now — it is not stored.
+1. Map **port 8765** in the add-on Network settings (or use `/mcp` on direct web port `8080`).
+2. Open Securo (`http://<ha-host>:8080` or via **Open Web UI**), go to **Agents → Connections → External MCP access**, and generate a token. Copy it now — it is not stored.
 3. Point the client at one of:
    - `http://<ha-host>:8765/mcp`
-   - `http://<ha-host>:<mapped-port-80>/mcp`
+   - `http://<ha-host>:8080/mcp`
 4. Send `Authorization: Bearer <token>` on every request.
-
-**Do not use the Home Assistant sidebar ingress URL** for Claude Desktop, Cursor, n8n, or Home Assistant’s MCP integration. Ingress is cookie-based and is for the web UI only.
 
 Example `tools/list` check:
 
@@ -121,8 +122,8 @@ Native/fastembed embeddings are **not available** on this Alpine image (`onnxrun
 
 After installation, Securo is available:
 
-- In the **Home Assistant sidebar** (ingress — web UI only)
-- On **port 80** of your Home Assistant host (web UI; `/mcp` when agents are enabled)
+- On **port 8080** (default mapped port) of your Home Assistant host: `http://<ha-host>:8080/`
+- Via the **Open Web UI** button on the add-on info card
 - On **port 8765** when agents are enabled (MCP JSON-RPC; JWT required)
 
 Create your first account by opening the app and registering.

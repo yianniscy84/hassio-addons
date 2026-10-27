@@ -9,7 +9,7 @@ PGDATA="/data/postgres"
 APP_DIR="/app"
 # Create default options.json if not present (e.g. on first run with mounted volume)
 if [ ! -f "${CONFIG_PATH}" ]; then
-    echo '{"secret_key":"","frontend_url":"","debug":false,"db_password":"postgres","pluggy_client_id":"","pluggy_client_secret":"","enable_banking_app_id":"","enable_banking_private_key_file":"","enable_banking_oauth_redirect_uri":"","simplefin_enabled":false,"simplefin_api_url":"https://beta-bridge.simplefin.org","oidc_enabled":false,"oidc_provider_name":"OIDC","oidc_discovery_url":"","oidc_client_id":"","oidc_client_secret":"","oidc_redirect_uri":"","oidc_scopes":"openid email profile","oidc_auto_register":true,"oidc_existing_user_link_mode":"disabled","oidc_require_verified_email":true,"oidc_sync_roles":false,"oidc_roles_claim":"groups","oidc_admin_roles":"","oidc_workspace_role_map":"","local_auth_enabled":true,"openexchangerates_app_id":"","fx_sync_mode":"on_demand","tesouro_direto_enabled":true,"agents_enabled":false,"agents_mcp_jwt_secret":"","agents_external_mcp_url":"","agents_extra_mcp_servers":"","agents_default_provider":"","agents_default_model":"","agents_openai_api_key":"","agents_anthropic_api_key":"","agents_ollama_base_url":"","agents_openai_compat_base_url":"","agents_openai_compat_api_key":"","agents_embedding_provider":"ollama"}' > "${CONFIG_PATH}"
+    echo '{"secret_key":"","frontend_url":"","debug":false,"db_password":"postgres","pluggy_client_id":"","pluggy_client_secret":"","enable_banking_app_id":"","enable_banking_private_key_file":"","enable_banking_oauth_redirect_uri":"","enable_banking_history_days":999,"bank_sync_min_interval_hours":4,"simplefin_enabled":false,"simplefin_api_url":"https://beta-bridge.simplefin.org","oidc_enabled":false,"oidc_provider_name":"OIDC","oidc_discovery_url":"","oidc_client_id":"","oidc_client_secret":"","oidc_redirect_uri":"","oidc_scopes":"openid email profile","oidc_auto_register":true,"oidc_existing_user_link_mode":"disabled","oidc_require_verified_email":true,"oidc_sync_roles":false,"oidc_roles_claim":"groups","oidc_admin_roles":"","oidc_workspace_role_map":"","local_auth_enabled":true,"openexchangerates_app_id":"","fx_sync_mode":"on_demand","tesouro_direto_enabled":true,"agents_enabled":false,"agents_mcp_jwt_secret":"","agents_external_mcp_url":"","agents_extra_mcp_servers":"","agents_default_provider":"","agents_default_model":"","agents_openai_api_key":"","agents_anthropic_api_key":"","agents_ollama_base_url":"","agents_openai_compat_base_url":"","agents_openai_compat_api_key":"","agents_embedding_provider":"ollama"}' > "${CONFIG_PATH}"
 fi
 
 # --------------------------------------------------------------------------
@@ -36,6 +36,7 @@ ENABLE_BANKING_APP_ID=$(bashio::config 'enable_banking_app_id')
 ENABLE_BANKING_PRIVATE_KEY_FILE=$(bashio::config 'enable_banking_private_key_file')
 ENABLE_BANKING_OAUTH_REDIRECT_URI=$(bashio::config 'enable_banking_oauth_redirect_uri')
 ENABLE_BANKING_HISTORY_DAYS=$(bashio::config 'enable_banking_history_days')
+BANK_SYNC_MIN_INTERVAL_HOURS=$(bashio::config 'bank_sync_min_interval_hours')
 SIMPLEFIN_ENABLED=$(bashio::config 'simplefin_enabled')
 SIMPLEFIN_API_URL=$(bashio::config 'simplefin_api_url')
 
@@ -97,6 +98,7 @@ export ENABLE_BANKING_PRIVATE_KEY_FILE
 export ENABLE_BANKING_API_URL="https://api.enablebanking.com"
 export ENABLE_BANKING_OAUTH_REDIRECT_URI
 [ -n "${ENABLE_BANKING_HISTORY_DAYS}" ] && export ENABLE_BANKING_HISTORY_DAYS
+[ -n "${BANK_SYNC_MIN_INTERVAL_HOURS}" ] && export BANK_SYNC_MIN_INTERVAL_HOURS
 export SIMPLEFIN_ENABLED
 export SIMPLEFIN_API_URL
 

@@ -13,7 +13,6 @@
   <img src="https://img.shields.io/badge/dynamic/yaml?label=Version&query=%24.version&url=https%3A%2F%2Fraw.githubusercontent.com%2Fyianniscy84%2Fhassio-addons%2Fmain%2Fsecuro%2Fconfig.yaml&color=brightgreen&style=flat-square" alt="Add-on Version">
   <img src="https://img.shields.io/badge/dynamic/json?label=Upstream&query=%24.upstream_version&url=https%3A%2F%2Fraw.githubusercontent.com%2Fyianniscy84%2Fhassio-addons%2Fmain%2Fsecuro%2Fupdater.json&color=blue&style=flat-square" alt="Upstream Version">
   <img src="https://img.shields.io/badge/dynamic/json?label=Updated&query=%24.last_update&url=https%3A%2F%2Fraw.githubusercontent.com%2Fyianniscy84%2Fhassio-addons%2Fmain%2Fsecuro%2Fupdater.json&color=lightgrey&style=flat-square" alt="Last Update">
-  <img src="https://img.shields.io/badge/Ingress-Supported-blueviolet.svg?style=flat-square" alt="Ingress Supported">
   <img src="https://img.shields.io/badge/Stage-Stable-brightgreen.svg?style=flat-square" alt="Stage Stable">
 </p>
 
@@ -29,7 +28,7 @@
 
 ## 🌟 Key Features
 
-- **Account & Portfolio Tracking**: Manage checking, savings, investments, and liabilities with running balances.
+- **Account & Portfolio Tracking**: Manage checking, savings, investments, loan/mortgage accounts linked to real-estate properties, and liabilities with running balances.
 - **Transaction Management**: Search, categorization, splits, tagging, and CSV/OFX/QIF/CAMT imports.
 - **Automated Bank Synchronization**: Live sync support via SimpleFIN (US/International), Enable Banking (Europe/PSD2), and Pluggy (Brazil).
 - **Budgets & Goals**: Set category spending budgets, track financial targets, and visualize net worth evolution over time.
@@ -42,8 +41,7 @@
 
 | Parameter | Specification |
 | :--- | :--- |
-| **Ingress Support** | Yes (available in Home Assistant sidebar) |
-| **Web UI Port** | Container `80` → Host `8080` |
+| **Web UI Port** | Container `80` → Host `8080` (Direct access via `http://<your-ha-host>:8080`) |
 | **MCP Server Port** | Container `8765` → Host `8765` (Active when `agents_enabled` is `true`) |
 | **Database** | Embedded PostgreSQL 16 with `pgvector` & `pgcrypto` (`/data/postgres`) |
 | **Cache & Worker** | Ephemeral Redis cache + background Celery worker |
@@ -60,7 +58,7 @@
    ```
 2. In the Add-on Store, find **Securo** and click **Install**.
 3. Once installed, review the **Configuration** tab (optionally configure bank sync, OIDC, or MCP).
-4. Start the add-on and open it via the **Home Assistant sidebar** (Ingress) or directly at `http://<your-ha-host>:8080`.
+4. Start the add-on and open it directly at `http://<your-ha-host>:8080` (or click **Open Web UI**).
 5. Register your administrator user on first launch.
 
 ---
@@ -101,7 +99,7 @@ When `agents_enabled: true` is set, Securo exposes a standard JSON-RPC MCP serve
 }
 ```
 
-> **Note**: Do not use the Home Assistant ingress URL for external MCP clients. Use the direct host port `8765`.
+> **Note**: External MCP clients connect directly to host port `8765`.
 
 ---
 

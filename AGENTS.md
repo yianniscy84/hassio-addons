@@ -10,7 +10,7 @@ Repository URL: `https://github.com/yianniscy84/hassio-addons`
 
 | Addon Directory | Type | Slug | Upstream Project | Web / Ingress | MCP Port | Direct Port | Base Stack |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| [`securo/`](securo/) | Production | `securo` | `securo-finance/securo` | Port 80 / Ingress | 8765 | 8080 | Python 3.12 (FastAPI), React, PG 16, Redis, Celery, Alpine |
+| [`securo/`](securo/) | Production | `securo` | `securo-finance/securo` | No Ingress (port 8080) | 8765 | 8080 | Python 3.12 (FastAPI), React, PG 16, Redis, Celery, Alpine |
 | [`omniroute/`](omniroute/) | Production | `omniroute` | `diegosouzapw/OmniRoute` | No Ingress | — | 20128 | Node.js (upstream image), Redis, Debian (direct access) |
 | [`memos/`](memos/) | Production | `memos` | `usememos/memos` | No Ingress (port 5230) | — | 5230 | Go (upstream image), SQLite/PostgreSQL, Alpine (direct access) |
 | [`blinko/`](blinko/) | Production | `blinko` | `blinkospace/blinko` | No Ingress (port 1111) | — | 1111 | Node.js (upstream image), bundled PostgreSQL, Alpine (direct access) |
@@ -63,7 +63,7 @@ docker run -d --name freellmapi-smoke -p 3001:3001 -v freellmapi-data:/data free
 ### Securo (Python 3.12 / Alpine)
 - **Dependency Management:** No `requirements.txt`. Lockfile is `backend/uv.lock` generated via `uv export --frozen --no-emit-project`.
 - **Alpine / Musl Constraints:** Packages require musllinux wheels. `onnxruntime` (`fastembed`) lacks musl wheels and is excluded from `backend/pyproject.toml`. Default embeddings use `ollama` or OpenAI compatibility.
-- **Nginx Static Asset Routing:** `nginx.conf` maps `^/(?:.+/)?static/(.+)$` to `/var/www/securo/static/$1` so nested routes (e.g., `/oauth/callback`, `/auth/oidc/callback`, `/accounts/:id`) resolve Vite's relative asset paths properly under direct domains and HA Ingress.
+- **No Ingress:** Runs on direct port 8080. `frontend/` is 100% vanilla upstream code without Ingress pathing modifications.
 - **Database & Extensions:** PostgreSQL 16 at `/data/postgres`. Requires `postgresql16-contrib` (`pgcrypto`) and compiled `pgvector`. Migrations run via `alembic upgrade head` on startup in `run.sh`.
 - **Background Tasks:** Redis is ephemeral cache/broker. Celery runs as background worker/beat inside the container.
 - **Configuration & Bashio:** Options are parsed from `/data/options.json` via `bashio`. Shebang must remain `#!/usr/bin/with-contenv bashio`.
@@ -101,33 +101,18 @@ docker run -d --name freellmapi-smoke -p 3001:3001 -v freellmapi-data:/data free
 See [`UPSTREAM.md`](UPSTREAM.md) for version matrix and sync tracking.
 
 ### Securo Sync Checklist
-1. Copy updated `backend/` and `frontend/` from upstream repository.
-2. **Preserve HAOS-specific files:**
-   - `backend/pyproject.toml` (fastembed exclusion & pinned dependencies)
-   - `frontend/src/lib/basename.ts` (dynamic ingress base path detection)
-   - `frontend/src/App.tsx` (`<BrowserRouter basename={basename}>`)
-   - `frontend/src/lib/api.ts` (`basename` in `baseURL` + login redirect)
-   - `frontend/vite.config.ts` (`base: './'`)
+1. Copy updated `backend/` and `frontend/` from upstream repository. `frontend/` is 100% vanilla upstream code.
+2. **Preserve HAOS-specific backend files:**
+   - `backend/pyproject.toml` (fastembed exclusion for Alpine musl)
+   - `backend/alembic/versions/098_account_stable_external_id_legacy_rename.py` (legacy rename migration)
+   - Upstream's migration 098 (`098_loan_property_link.py`) is renumbered to `099_loan_property_link.py` (`revises: 098`)
 3. **Re-apply active patches (see [`UPSTREAM.md`](UPSTREAM.md)):**
    - Check if upstream merged the PR in the new release.
    - If not yet merged upstream, re-apply active patches:
      `git apply --directory=securo patches/securo/*.patch`
    - If merged upstream, remove obsolete patch file from `patches/securo/` and update `UPSTREAM.md`.
-   - **Re-apply on top of upstream, never as a replacement.** The add-on also carries
-     changes adopted early from still-open upstream PRs (see "Superseded by upstream
-     work we adopted early" in `UPSTREAM.md` — PR #1106 in v0.16.5 merged `accounts.stable_external_id` and migration `097_account_stable_external_id`). Those live in the copied source and
-     are deliberately *not* in any patch file. Check whether the incoming upstream
-     release now contains them before applying, or they will be duplicated.
-4. Regenerate lockfile if backend dependencies changed: `cd backend && uv lock`.
+4. Regenerate lockfile if backend dependencies changed: `cd securo/backend && uv lock`.
 5. Update `UPSTREAM.md` with new upstream version and sync timestamp.
-
-> **Never restore a whole HAOS file from a previous sync.** The four frontend files
-> above and `backend/pyproject.toml` are upstream files with small HAOS edits layered
-> on top. Restoring a stale copy silently reverts every upstream change made in
-> between (this happened to `api.ts` and `App.tsx` during the v0.16.3 sync, losing
-> the new invoice-schedule and products routes). Copy upstream's current file, then
-> re-apply only the HAOS delta, and confirm with:
-> `git diff --no-index <upstream>/frontend/src/lib/api.ts securo/frontend/src/lib/api.ts`
 
 ---
 

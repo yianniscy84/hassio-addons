@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.35.0
+
+- Sync with upstream Securo v0.16.6
+- Upstream: Loan accounts linked to real-estate assets with debt and equity tracking
+- Upstream: System theme that automatically tracks operating system preference
+- Upstream: Reports range overhaul — month presets, period navigation, and year picker
+- Upstream: Built-in AI agent templates (savings advisor, monthly review, budget watch, recurring audit)
+- Upstream: Context menu for bulk transaction actions
+- Upstream: One-click "Mark as posted" for pending transactions from the row
+- Upstream: Dashboard, accounts, rules, and categories refresh button
+- Upstream: Shared credit line per-card open bill calculation
+- Upstream: Transfer badge names linked account
+- Upstream: Transfer-pair MCP tools in built-in MCP server
+- Upstream: Configurable automatic bank sync interval (`BANK_SYNC_MIN_INTERVAL_HOURS`)
+- Upstream: New currencies: Georgian lari (`GEL`) and South African rand (`ZAR`)
+- Upstream: Multiple fixes across group balances, currency conversions, SimpleFIN sync resilience, and invoice matching
+- Addon: Removed Ingress support in favor of direct standalone access (port 8080) for a 100% vanilla upstream frontend
+- Addon: Re-sequenced upstream loan-property migration as Alembic revision 099 (`099_loan_property_link.py`) to prevent collision with local migration 098
+- Addon: Rebased and standardized Patch 0002 for upstream v0.16.6
+- Addon: Added `bank_sync_min_interval_hours` configuration option (default: 4 hours)
+
 ## 0.34.1
 
 - Fix: Add Alembic migration 098 to rename legacy `accounts.stable_id` to `accounts.stable_external_id` for existing installations upgrading from add-on 0.32/0.33

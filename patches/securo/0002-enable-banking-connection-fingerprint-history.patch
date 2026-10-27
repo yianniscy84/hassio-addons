@@ -1,10 +1,10 @@
 From bc50fdc6daff011e70d41b1eef207f805fa8757d Mon Sep 17 00:00:00 2001
 From: Ioannis Ioannou <ioannis.ioannou.84@gmail.com>
-Date: Mon, 26 Oct 2026 22:50:00 +0200
+Date: Tue, 27 Oct 2026 08:50:00 +0200
 Subject: [PATCH] fix(enable-banking): stable fingerprints, duplicate-connection
  adoption, and configurable history window
 
-Four fixes layered on top of upstream v0.16.5.
+Four fixes layered on top of upstream v0.16.6.
 None is upstream behaviour, so they are carried as an add-on patch.
 
 1. _txn_fingerprint excludes the session-scoped account_uid. Enable
@@ -30,11 +30,11 @@ None is upstream behaviour, so they are carried as an add-on patch.
 Reported upstream as issue #1013.
 ---
 
-diff --git "a/C:\\Users\\yiann\\AppData\\Local\\Temp\\securo-upstream-v0.16.5\\\\backend\\app\\core\\config.py" "b/c:\\Development\\hassio-addons\\securo\\\\backend\\app\\core\\config.py"
-index d40802b..55ed99d 100644
---- "a/C:\\Users\\yiann\\AppData\\Local\\Temp\\securo-upstream-v0.16.5\\\\backend\\app\\core\\config.py"
-+++ "b/c:\\Development\\hassio-addons\\securo\\\\backend\\app\\core\\config.py"
-@@ -43,6 +43,10 @@ class Settings(BaseSettings):
+diff --git a/backend/app/core/config.py b/backend/app/core/config.py
+index bac3b39..5ddc9bf 100644
+--- a/backend/app/core/config.py
++++ b/backend/app/core/config.py
+@@ -45,6 +45,10 @@ class Settings(BaseSettings):
      enable_banking_private_key_file: str = ""  # path to PEM file; takes precedence
      enable_banking_api_url: str = "https://api.enablebanking.com"
      enable_banking_oauth_redirect_uri: str = ""  # empty derives from FRONTEND_URL
@@ -45,10 +45,11 @@ index d40802b..55ed99d 100644
  
      # SimpleFIN Bridge (US/intl banks, paste-a-token flow). Off by default.
      # The bridge URL defaults to the beta/sandbox host so users can test with
-diff --git "a/C:\\Users\\yiann\\AppData\\Local\\Temp\\securo-upstream-v0.16.5\\\\backend\\app\\providers\\enable_banking.py" "b/c:\\Development\\hassio-addons\\securo\\\\backend\\app\\providers\\enable_banking.py"
+
+diff --git a/backend/app/providers/enable_banking.py b/backend/app/providers/enable_banking.py
 index d257096..18d4c6f 100644
---- "a/C:\\Users\\yiann\\AppData\\Local\\Temp\\securo-upstream-v0.16.5\\\\backend\\app\\providers\\enable_banking.py"
-+++ "b/c:\\Development\\hassio-addons\\securo\\\\backend\\app\\providers\\enable_banking.py"
+--- a/backend/app/providers/enable_banking.py
++++ b/backend/app/providers/enable_banking.py
 @@ -150,6 +150,10 @@ def _txn_fingerprint(account_uid: str, raw: dict) -> str:
  
      EB's `entry_reference` is unreliable across providers, so we hash the
@@ -127,11 +128,12 @@ index d257096..18d4c6f 100644
              if continuation_key:
                  params["continuation_key"] = continuation_key
              page = await self._request(
-diff --git "a/C:\\Users\\yiann\\AppData\\Local\\Temp\\securo-upstream-v0.16.5\\\\backend\\app\\services\\connection_service.py" "b/c:\\Development\\hassio-addons\\securo\\\\backend\\app\\services\\connection_service.py"
-index 82805fd..a292054 100644
---- "a/C:\\Users\\yiann\\AppData\\Local\\Temp\\securo-upstream-v0.16.5\\\\backend\\app\\services\\connection_service.py"
-+++ "b/c:\\Development\\hassio-addons\\securo\\\\backend\\app\\services\\connection_service.py"
-@@ -1079,6 +1079,39 @@ async def handle_oauth_callback(
+
+diff --git a/backend/app/services/connection_service.py b/backend/app/services/connection_service.py
+index 600eb07..e6f0a1c 100644
+--- a/backend/app/services/connection_service.py
++++ b/backend/app/services/connection_service.py
+@@ -1328,6 +1328,39 @@ async def handle_oauth_callback(
          await session.refresh(existing_reconnect)
          return existing_reconnect
  
@@ -171,7 +173,7 @@ index 82805fd..a292054 100644
      flow_params = dict(state_payload.get("flow_params") or {})
      flow_sync_assets = flow_params.pop("sync_assets", None)
      initial_settings: dict[str, object] = {"flow_params": flow_params}
-@@ -1305,6 +1338,81 @@ def _normalized_account_name(name: str | None) -> str:
+@@ -1563,6 +1596,81 @@ def _normalized_account_name(name: str | None) -> str:
      return " ".join((name or "").casefold().split())
  
  
@@ -253,20 +255,21 @@ index 82805fd..a292054 100644
  async def _find_existing_connected_account(
      session: AsyncSession,
      connection: BankConnection,
-@@ -2071,6 +2179,9 @@ async def sync_connection(
-         new_tx_ids: list[uuid.UUID] = []
+@@ -2339,6 +2447,9 @@ async def sync_connection(
          merged_count = 0
          live_txn_external_ids: dict[uuid.UUID, set[str]] = {}
+         incomplete_fetch_account_ids: set[uuid.UUID] = set()
 +        # Consolidate rows duplicated by add-on versions 0.31.1/0.31.2 before
 +        # matching incoming data, so a re-link lands on a single account.
 +        await _cleanup_legacy_duplicate_accounts(session, connection)
          accounts_data = await provider.get_accounts(credentials)
          incoming_external_ids = {acc.external_id for acc in accounts_data}
          incoming_institution_external_ids = frozenset(
-diff --git "a/C:\\Users\\yiann\\AppData\\Local\\Temp\\securo-upstream-v0.16.5\\\\backend\\tests\\test_connection_service.py" "b/c:\\Development\\hassio-addons\\securo\\\\backend\\tests\\test_connection_service.py"
-index 1b2e0ec..29764ea 100644
---- "a/C:\\Users\\yiann\\AppData\\Local\\Temp\\securo-upstream-v0.16.5\\\\backend\\tests\\test_connection_service.py"
-+++ "b/c:\\Development\\hassio-addons\\securo\\\\backend\\tests\\test_connection_service.py"
+
+diff --git a/backend/tests/test_connection_service.py b/backend/tests/test_connection_service.py
+index 082b851..7258e2d 100644
+--- a/backend/tests/test_connection_service.py
++++ b/backend/tests/test_connection_service.py
 @@ -28,6 +28,7 @@ from app.providers.base import (
  )
  from app.services.text_similarity import token_overlap
@@ -587,10 +590,11 @@ index 1b2e0ec..29764ea 100644
  @pytest.mark.asyncio
  async def test_token_reconnect_rejects_provider_mismatch(
      session: AsyncSession, test_user, test_workspace
-diff --git "a/C:\\Users\\yiann\\AppData\\Local\\Temp\\securo-upstream-v0.16.5\\\\backend\\tests\\test_providers_enable_banking.py" "b/c:\\Development\\hassio-addons\\securo\\\\backend\\tests\\test_providers_enable_banking.py"
-index 34e3a9f..71cdbeb 100644
---- "a/C:\\Users\\yiann\\AppData\\Local\\Temp\\securo-upstream-v0.16.5\\\\backend\\tests\\test_providers_enable_banking.py"
-+++ "b/c:\\Development\\hassio-addons\\securo\\\\backend\\tests\\test_providers_enable_banking.py"
+
+diff --git a/backend/tests/test_providers_enable_banking.py b/backend/tests/test_providers_enable_banking.py
+index 34e3a9f..31ad05d 100644
+--- a/backend/tests/test_providers_enable_banking.py
++++ b/backend/tests/test_providers_enable_banking.py
 @@ -17,6 +17,7 @@ from cryptography.hazmat.primitives import serialization
  from cryptography.hazmat.primitives.asymmetric import rsa
  from jose import jwt
@@ -644,7 +648,7 @@ index 34e3a9f..71cdbeb 100644
  
  
  @pytest.mark.asyncio
-@@ -495,9 +523,12 @@ async def test_get_transactions_retries_shorter_window_on_wrong_period(eb_keys):
+@@ -495,9 +523,13 @@ async def test_get_transactions_retries_shorter_window_on_wrong_period(eb_keys):
          transactions = await provider.get_transactions(_CREDENTIALS, "acc-1")
  
      assert [_span_days(r) for r in requests] == [
@@ -655,15 +659,14 @@ index 34e3a9f..71cdbeb 100644
 +    # The retry is a plain bounded window: no strategy, so a bank that caps the
 +    # range gets exactly the fallback and nothing more.
 +    assert "strategy" not in requests[1].url.params
++    assert [t.external_id for t in transactions] == ["tx-1"]
      assert [t.external_id for t in transactions] == ["tx-1"]
  
  
-@@ -829,3 +860,42 @@ def test_txn_fingerprint_includes_transaction_date():
+@@ -829,3 +861,42 @@ def test_txn_fingerprint_includes_transaction_date():
      assert fp1 != fp2
  
  
-+
-+
 +def test_txn_fingerprint_ignores_session_account_uid():
 +    """Reauthorization mints a new EB session and a new account uid.
 +
@@ -701,3 +704,5 @@ index 34e3a9f..71cdbeb 100644
 +    one = dict(base, creditor_account={"iban": "DE11111111111111111111"})
 +    two = dict(base, creditor_account={"iban": "DE22222222222222222222"})
 +    assert _txn_fingerprint("acc", one) != _txn_fingerprint("acc", two)
++
++

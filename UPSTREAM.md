@@ -8,7 +8,7 @@ This file tracks upstream versions for each addon.
 
 | Addon | Upstream Version | Addon Version | Last Synced |
 |-------|-----------------|---------------|-------------|
-| `securo/` | v0.16.5 | 0.34.1 | 2026-10-26 |
+| `securo/` | v0.16.6 | 0.35.0 | 2026-10-27 |
 
 The Securo test add-on (`securo-test/`) was removed on 2026-10-04; `securo/` is now the only tracked Securo add-on and is validated directly via `docker build` + smoke test before release.
 
@@ -88,16 +88,15 @@ When syncing Securo from upstream:
 
 ### Securo
 
-- Backend and frontend code are copied from upstream, then HAOS-specific modifications are re-applied
-- HAOS-modified files (do not overwrite on sync):
-  - `*/backend/pyproject.toml` — fastembed excluded (musl incompatibility), ruff/ty pins
-  - `*/frontend/src/lib/basename.ts` — ingress base path detection
-  - `*/frontend/src/App.tsx` — `<BrowserRouter basename={basename}>`
-  - `*/frontend/src/lib/api.ts` — basename in baseURL + login redirect
-  - `*/frontend/vite.config.ts` — `base: './'` for relative asset paths
+- Backend and frontend code are copied from upstream.
+- Direct port access (port 8080); Ingress was dropped in add-on 0.35.0 so `frontend/` is 100% vanilla upstream code without patches.
+- HAOS-modified backend files (do not overwrite on sync):
+  - `securo/backend/pyproject.toml` — fastembed excluded (musl incompatibility)
+  - `securo/backend/alembic/versions/098_account_stable_external_id_legacy_rename.py` — legacy column rename for 0.32/0.33 upgrades
+  - Upstream's migration 098 (`098_loan_property_link.py`) is renumbered to `099_loan_property_link.py` (`revises: 098`) to prevent collision.
 - Active patches from `patches/securo/` must be reapplied if upstream has not yet merged them.
-- `uv.lock` must be regenerated after syncing `pyproject.toml` (`uv lock`)
-- `frontend/dist/` is NOT committed — built during `docker build`
+- `uv.lock` must be regenerated after syncing `pyproject.toml` (`uv lock`).
+- `frontend/dist/` is NOT committed — built during `docker build`.
 
 ### OmniRoute
 

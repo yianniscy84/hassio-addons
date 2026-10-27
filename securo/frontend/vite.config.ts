@@ -21,7 +21,6 @@ export default defineConfig(async ({ mode }) => {
   )
 
   return {
-    base: './',
     define: {
       __APP_VERSION__: JSON.stringify(appVersion),
     },

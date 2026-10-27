@@ -11,7 +11,6 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/dynamic/yaml?label=Version&query=%24.version&url=https%3A%2F%2Fraw.githubusercontent.com%2Fyianniscy84%2Fhassio-addons%2Fmain%2Ffreellmapi%2Fconfig.yaml&color=brightgreen&style=flat-square" alt="Add-on Version">
-  <img src="https://img.shields.io/badge/Ingress-No-grey.svg?style=flat-square" alt="Ingress Disabled">
   <img src="https://img.shields.io/badge/Stage-Stable-brightgreen.svg?style=flat-square" alt="Stage Stable">
 </p>
 
@@ -37,7 +36,6 @@
 
 | Parameter | Specification |
 | :--- | :--- |
-| **Ingress Support** | No (direct port access for compatibility with standard LLM clients) |
 | **Direct Host Port** | `3001` (Web UI + `/v1` API + `/mcp`) |
 | **Internal Stack** | Node.js 20 (official `ghcr.io/tashfeenahmed/freellmapi:v0.15.0` image) |
 | **Database** | SQLite in `/data/freeapi.db` |

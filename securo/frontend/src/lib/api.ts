@@ -1,5 +1,4 @@
 import axios from 'axios'
-import { basename } from '@/lib/basename'
 import type { AxiosResponse } from 'axios'
 import { markDataChanged } from '@/lib/data-changed'
 import type { NumberFormat, DateFormat } from '@/lib/format'
@@ -107,7 +106,7 @@ import type {
 } from '@/types'
 
 const api = axios.create({
-  baseURL: `${basename}/api`,
+  baseURL: '/api',
 })
 export { api }
 
@@ -135,7 +134,7 @@ api.interceptors.response.use(
   (error) => {
     if (error.response?.status === 401) {
       localStorage.removeItem('token')
-      window.location.href = `${basename}/login`
+      window.location.href = '/login'
     }
     return Promise.reject(error)
   }
@@ -497,6 +496,7 @@ export const accounts = {
     balance?: number
     balance_date?: string
     currency?: string
+    secured_asset_id?: string | null
     credit_limit?: number | null
     statement_close_day?: number | null
     payment_due_day?: number | null
@@ -619,6 +619,10 @@ export const transactions = {
   },
   unlinkRecurring: async (id: string): Promise<Transaction> => {
     const { data } = await api.patch(`/transactions/${id}/unlink-recurring`)
+    return data
+  },
+  postToday: async (id: string): Promise<Transaction> => {
+    const { data } = await api.post(`/transactions/${id}/post-today`)
     return data
   },
   createTransfer: async (transfer: {
@@ -1567,6 +1571,13 @@ export const reports = {
     const { data } = await api.get('/reports/cash-flow', { params: { months, interval, baseline, ...(extra.params ?? {}) }, ...(extra.paramsSerializer ? { paramsSerializer: extra.paramsSerializer } : {}) })
     return data
   },
+  // Oldest and newest transaction dates in the workspace (opening
+  // balances excluded). The reports page builds its year picker from
+  // these bounds (issue #765).
+  dataRange: async (): Promise<{ min_date: string | null; max_date: string | null }> => {
+    const { data } = await api.get('/reports/data-range')
+    return data
+  },
 }
 
 // Currencies
@@ -1889,7 +1900,13 @@ export const agents = {
     const { data } = await api.get(`/agents/${id}`)
     return data
   },
-  create: async (payload: Partial<Agent> & { name: string }): Promise<Agent> => {
+  create: async (
+    payload: Partial<Agent> & {
+      name: string
+      /** Tool whitelist saved with the agent in the same transaction. */
+      tools?: { server: string; tool_name: string; enabled: boolean }[]
+    },
+  ): Promise<Agent> => {
     const { data } = await api.post('/agents', payload)
     return data
   },
@@ -1956,7 +1973,7 @@ export const agents = {
   },
   // Streaming chat endpoint — caller handles the SSE response themselves
   // (see lib/agents-stream.ts). We just expose the URL + body builder.
-  chatUrl: (agentId: string) => `${basename}/api/agents/${agentId}/chat`,
+  chatUrl: (agentId: string) => `/api/agents/${agentId}/chat`,
 
   connections: {
     list: async (): Promise<LlmConnection[]> => {
@@ -2312,8 +2329,8 @@ export const publicInvoices = {
     // Bare axios, not the shared instance: the interceptors would attach
     // an Authorization header and a workspace id, and this route must
     // work for someone who has neither.
-    const { data } = await axios.get(`${basename}/api/public/invoices/${token}`)
+    const { data } = await axios.get(`/api/public/invoices/${token}`)
     return data
   },
-  pdfUrl: (token: string): string => `${basename}/api/public/invoices/${token}/pdf`,
+  pdfUrl: (token: string): string => `/api/public/invoices/${token}/pdf`,
 }

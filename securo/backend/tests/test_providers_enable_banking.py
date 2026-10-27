@@ -530,6 +530,7 @@ async def test_get_transactions_retries_shorter_window_on_wrong_period(eb_keys):
     # range gets exactly the fallback and nothing more.
     assert "strategy" not in requests[1].url.params
     assert [t.external_id for t in transactions] == ["tx-1"]
+    assert [t.external_id for t in transactions] == ["tx-1"]
 
 
 @pytest.mark.asyncio
@@ -860,8 +861,6 @@ def test_txn_fingerprint_includes_transaction_date():
     assert fp1 != fp2
 
 
-
-
 def test_txn_fingerprint_ignores_session_account_uid():
     """Reauthorization mints a new EB session and a new account uid.
 
@@ -899,3 +898,5 @@ def test_txn_fingerprint_differs_across_accounts_with_distinct_counterparties():
     one = dict(base, creditor_account={"iban": "DE11111111111111111111"})
     two = dict(base, creditor_account={"iban": "DE22222222222222222222"})
     assert _txn_fingerprint("acc", one) != _txn_fingerprint("acc", two)
+
+

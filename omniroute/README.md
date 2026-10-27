@@ -13,7 +13,6 @@
   <img src="https://img.shields.io/badge/dynamic/yaml?label=Version&query=%24.version&url=https%3A%2F%2Fraw.githubusercontent.com%2Fyianniscy84%2Fhassio-addons%2Fmain%2Fomniroute%2Fconfig.yaml&color=brightgreen&style=flat-square" alt="Add-on Version">
   <img src="https://img.shields.io/badge/dynamic/json?label=Upstream&query=%24.upstream_version&url=https%3A%2F%2Fraw.githubusercontent.com%2Fyianniscy84%2Fhassio-addons%2Fmain%2Fomniroute%2Fupdater.json&color=blue&style=flat-square" alt="Upstream Version">
   <img src="https://img.shields.io/badge/dynamic/json?label=Updated&query=%24.last_update&url=https%3A%2F%2Fraw.githubusercontent.com%2Fyianniscy84%2Fhassio-addons%2Fmain%2Fomniroute%2Fupdater.json&color=lightgrey&style=flat-square" alt="Last Update">
-  <img src="https://img.shields.io/badge/Ingress-No-grey.svg?style=flat-square" alt="Ingress Disabled">
   <img src="https://img.shields.io/badge/Stage-Stable-brightgreen.svg?style=flat-square" alt="Stage Stable">
 </p>
 
@@ -41,7 +40,6 @@
 
 | Parameter | Specification |
 | :--- | :--- |
-| **Ingress Support** | No (Direct port access) |
 | **Direct Host Port** | `20128` (Dashboard UI + API Endpoint) |
 | **Default API Base URL** | `http://<your-ha-host>:20128/v1` |
 | **Internal Stack** | Node.js runtime + Redis server |

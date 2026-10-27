@@ -13,7 +13,6 @@
   <img src="https://img.shields.io/badge/dynamic/yaml?label=Version&query=%24.version&url=https%3A%2F%2Fraw.githubusercontent.com%2Fyianniscy84%2Fhassio-addons%2Fmain%2Fmemos%2Fconfig.yaml&color=brightgreen&style=flat-square" alt="Add-on Version">
   <img src="https://img.shields.io/badge/dynamic/json?label=Upstream&query=%24.upstream_version&url=https%3A%2F%2Fraw.githubusercontent.com%2Fyianniscy84%2Fhassio-addons%2Fmain%2Fmemos%2Fupdater.json&color=blue&style=flat-square" alt="Upstream Version">
   <img src="https://img.shields.io/badge/dynamic/json?label=Updated&query=%24.last_update&url=https%3A%2F%2Fraw.githubusercontent.com%2Fyianniscy84%2Fhassio-addons%2Fmain%2Fmemos%2Fupdater.json&color=lightgrey&style=flat-square" alt="Last Update">
-  <img src="https://img.shields.io/badge/Ingress-No-grey.svg?style=flat-square" alt="Ingress Disabled">
   <img src="https://img.shields.io/badge/Stage-Stable-brightgreen.svg?style=flat-square" alt="Stage Stable">
 </p>
 
@@ -40,7 +39,6 @@
 
 | Parameter | Specification |
 | :--- | :--- |
-| **Ingress Support** | No (direct port access — upstream has no base-path support) |
 | **Direct Host Port** | `5230` (Web UI + API) |
 | **Internal Stack** | Go server (official `neosmemo/memos` image) |
 | **Database** | SQLite in `/data` (default) or external PostgreSQL / MySQL |
