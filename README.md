@@ -36,6 +36,7 @@
 | [**Blinko**](blinko/) | Stable | ![Blinko Version](https://img.shields.io/badge/dynamic/yaml?label=&query=%24.version&url=https%3A%2F%2Fraw.githubusercontent.com%2Fyianniscy84%2Fhassio-addons%2Fmain%2Fblinko%2Fconfig.yaml&color=brightgreen&style=flat-square) | `1111` (Web/API) | ![aarch64](https://img.shields.io/badge/aarch64-green.svg?style=flat-square&logo=arm) ![amd64](https://img.shields.io/badge/amd64-green.svg?style=flat-square&logo=amd) | AI-powered card note-taking with Markdown, tags, plugins, and bundled PostgreSQL. |
 | [**FreeLLMAPI**](freellmapi/) | Stable | ![FreeLLMAPI Version](https://img.shields.io/badge/dynamic/yaml?label=&query=%24.version&url=https%3A%2F%2Fraw.githubusercontent.com%2Fyianniscy84%2Fhassio-addons%2Fmain%2Ffreellmapi%2Fconfig.yaml&color=brightgreen&style=flat-square) | `3001` (API/UI) | ![aarch64](https://img.shields.io/badge/aarch64-green.svg?style=flat-square&logo=arm) ![amd64](https://img.shields.io/badge/amd64-green.svg?style=flat-square&logo=amd) | OpenAI-compatible proxy and routing layer aggregating dozens of free LLM providers with smart fallbacks. |
 | [**Shoutrrr**](shoutrrr/) | Stable | ![Shoutrrr Version](https://img.shields.io/badge/dynamic/yaml?label=&query=%24.version&url=https%3A%2F%2Fraw.githubusercontent.com%2Fyianniscy84%2Fhassio-addons%2Fmain%2Fshoutrrr%2Fconfig.yaml&color=brightgreen&style=flat-square) | `8080` (Web/API/MCP) | ![aarch64](https://img.shields.io/badge/aarch64-green.svg?style=flat-square&logo=arm) ![amd64](https://img.shields.io/badge/amd64-green.svg?style=flat-square&logo=amd) | Self-hosted social media scheduler for X, Bluesky, LinkedIn, Facebook, Instagram, Threads and Discord. |
+| [**Postiz**](postiz/) | Stable | ![Postiz Version](https://img.shields.io/badge/dynamic/yaml?label=&query=%24.version&url=https%3A%2F%2Fraw.githubusercontent.com%2Fyianniscy84%2Fhassio-addons%2Fmain%2Fpostiz%2Fconfig.yaml&color=brightgreen&style=flat-square) | `5000` (Web/API/Uploads) | ![aarch64](https://img.shields.io/badge/aarch64-green.svg?style=flat-square&logo=arm) ![amd64](https://img.shields.io/badge/amd64-green.svg?style=flat-square&logo=amd) | Open-source social media scheduling, analytics, and automation platform with AI agents and MCP. |
 
 ---
 
@@ -172,12 +173,30 @@ Click the button below to add this repository directly to your Home Assistant in
 
 ---
 
+### [Postiz](postiz/)
+
+<p align="center">
+  <img src="postiz/icon.png" alt="Postiz Logo" width="90">
+</p>
+
+**Postiz** is an open-source, AI-powered social media scheduling and analytics platform designed as a self-hosted alternative to Buffer and Hootsuite.
+
+- **Universal Channel Scheduling**: Manage, schedule, and automate posts for X (Twitter), LinkedIn, YouTube, Instagram, Facebook, TikTok, Threads, Pinterest, Reddit, Bluesky, Mastodon, and Discord.
+- **Embedded Architecture**: Zero-config bundled PostgreSQL and Redis instances running directly inside the container.
+- **AI-Powered Workflows**: Generate, adapt, and rewrite social posts with OpenAI integration.
+- **Model Context Protocol (MCP)**: Native MCP connector enabling Claude, Cursor, and Home Assistant AI agents to automate social media campaigns.
+- **Full Data Ownership**: Database, media uploads, and secrets persist in `/data` and are backed up via Home Assistant snapshots.
+
+> Upstream project: [gitroomhq/postiz-app](https://github.com/gitroomhq/postiz-app) | [Documentation](postiz/DOCS.md)
+
+---
+
 
 ## 🛠️ Support & Troubleshooting
 
 If you encounter issues or have suggestions:
 
-1. **Check Documentation**: Review the add-on specific `DOCS.md` ([Securo Docs](securo/DOCS.md) / [OmniRoute Docs](omniroute/DOCS.md) / [Memos Docs](memos/DOCS.md) / [Blinko Docs](blinko/DOCS.md) / [FreeLLMAPI Docs](freellmapi/DOCS.md) / [Shoutrrr Docs](shoutrrr/DOCS.md)).
+1. **Check Documentation**: Review the add-on specific `DOCS.md` ([Securo Docs](securo/DOCS.md) / [OmniRoute Docs](omniroute/DOCS.md) / [Memos Docs](memos/DOCS.md) / [Blinko Docs](blinko/DOCS.md) / [FreeLLMAPI Docs](freellmapi/DOCS.md) / [Shoutrrr Docs](shoutrrr/DOCS.md) / [Postiz Docs](postiz/DOCS.md)).
 2. **Review Add-on Logs**: Open the add-on in Home Assistant and check the **Log** tab for error traces.
 3. **Open an Issue**: Submit a report on [GitHub Issues](https://github.com/yianniscy84/hassio-addons/issues). Please include:
    - Home Assistant OS / Core version

@@ -1,0 +1,51 @@
+configuration:
+  main_url:
+    name: Public / Application URL
+    description: >-
+      Canonical external URL of your Postiz instance (e.g.
+      https://postiz.example.com or http://homeassistant.local:5000). Essential for
+      OAuth callbacks (Twitter/X, LinkedIn, Meta, YouTube, etc.) and asset URLs.
+      Leave empty to default to http://localhost:5000.
+  db_url:
+    name: External PostgreSQL Database URL
+    description: >-
+      PostgreSQL connection string for an external server, e.g.
+      postgresql://user:password@host:5432/postiz — leave empty to use the
+      bundled PostgreSQL database stored in /data/postgres.
+  redis_url:
+    name: External Redis URL
+    description: >-
+      Redis connection URL for an external server, e.g. redis://host:6379 —
+      leave empty to use the bundled in-container Redis server.
+  disable_registration:
+    name: Disable Registration
+    description: >-
+      Block new user registrations. Recommended to enable after creating your
+      initial administrator account.
+  openai_api_key:
+    name: OpenAI API Key
+    description: >-
+      Optional OpenAI API key for AI post generation and rewriting capabilities.
+  storage_provider:
+    name: Storage Provider
+    description: >-
+      Storage backend for post media and avatars. Choose "local" (stored in
+      /data/uploads) or "cloudflare" (Cloudflare R2 / S3 compatible).
+  cloudflare_account_id:
+    name: Cloudflare Account ID
+    description: Optional Cloudflare Account ID for R2 storage.
+  cloudflare_access_key:
+    name: Cloudflare Access Key ID
+    description: Optional Cloudflare R2 Access Key ID.
+  cloudflare_secret_access_key:
+    name: Cloudflare Secret Access Key
+    description: Optional Cloudflare R2 Secret Access Key.
+  cloudflare_bucketname:
+    name: Cloudflare Bucket Name
+    description: Optional Cloudflare R2 Bucket Name.
+  cloudflare_bucket_url:
+    name: Cloudflare Public Bucket URL
+    description: >-
+      Public URL endpoint for the Cloudflare R2 bucket (e.g.
+      https://pub-xxxx.r2.dev or https://media.yourdomain.com).
+

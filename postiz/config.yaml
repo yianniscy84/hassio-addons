@@ -1,0 +1,50 @@
+name: "Postiz"
+description: >-
+  Open-source social media scheduling, analytics, and automation platform
+  with AI agent capabilities and Model Context Protocol (MCP) integrations.
+version: "2.25.3"
+slug: "postiz"
+init: false
+arch:
+  - amd64
+  - aarch64
+startup: application
+boot: auto
+ports:
+  5000/tcp: 5000
+ports_description:
+  5000/tcp: "Postiz web interface, API, and uploads"
+host_network: false
+apparmor: true
+webui: "http://[HOST]:[PORT:5000]/"
+panel_icon: mdi:share-variant-outline
+panel_title: "Postiz"
+backup: hot
+stage: stable
+
+options:
+  main_url: ""
+  db_url: ""
+  redis_url: ""
+  disable_registration: false
+  openai_api_key: ""
+  storage_provider: "local"
+  cloudflare_account_id: ""
+  cloudflare_access_key: ""
+  cloudflare_secret_access_key: ""
+  cloudflare_bucketname: ""
+  cloudflare_bucket_url: ""
+
+schema:
+  main_url: str?
+  db_url: password?
+  redis_url: password?
+  disable_registration: bool?
+  openai_api_key: password?
+  storage_provider: list(local|cloudflare)?
+  cloudflare_account_id: str?
+  cloudflare_access_key: password?
+  cloudflare_secret_access_key: password?
+  cloudflare_bucketname: str?
+  cloudflare_bucket_url: str?
+

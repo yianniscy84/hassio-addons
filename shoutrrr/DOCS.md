@@ -89,17 +89,33 @@ Two options, neither needs a developer app:
 
 ### X (Twitter)
 
-1. Create an app at <https://developer.x.com> with OAuth 2.0.
-2. Redirect URI: `${APP_URL}/accounts/callback/x`
-3. Scopes: `users.read`, `users.email`, `tweet.read`, `tweet.write`, `media.write`, `offline.access`
-4. Set `x_client_id` / `x_client_secret`.
+1. Sign in to the [X Developer Console](https://console.x.com) and create a Project + App (**New App**).
+2. Open **User authentication settings → Set up** and fill in:
+   - **App permissions**: `Read and write` (needed for `tweet.write` and `like.write`).
+   - **Type of App**: `Web App, Automated App or Bot` — this is a confidential client, the only type that issues a Client Secret.
+   - **Callback URI**: `${APP_URL}/accounts/callback/x` — exact match, including scheme and trailing slash.
+   - **Website URL**, **Terms of Service**, **Privacy Policy**: any valid URLs.
+   - **Request email address from users**: enabled (required for the `users.email` scope; without it `/2/users/me` returns 403).
+3. Copy the **OAuth 2.0 Client ID** and **Client Secret** from **Keys and tokens** into `x_client_id` / `x_client_secret`.
+4. Scopes Shoutrrr requests: `users.read`, `users.email`, `tweet.read`, `tweet.write`, `media.write`, `like.write`, `offline.access`.
+
+`offline.access` is what lets the connected account refresh instead of expiring silently. X bills API usage per endpoint (see the console's usage/credit page), so a scheduler with metrics and engagement polling consumes credits continuously — turn those toggles off if you only publish.
+
+> X rejects `http://` callbacks for anything other than `http://127.0.0.1`, so connecting an X account over a plain LAN URL such as `http://homeassistant.local:8080` fails with a `redirect_uri` error. Use a public HTTPS `app_url` (reverse proxy or tunnel) for X.
 
 ### LinkedIn
 
-1. Create an app at <https://www.linkedin.com/developers>.
-2. Redirect URI: `${APP_URL}/accounts/callback/linkedin`
-3. Scopes: `openid`, `profile`, `email`, `w_member_social`
-4. Set `linkedin_client_id` / `linkedin_client_secret`.
+1. Create an app at <https://www.linkedin.com/developers/apps> — you need a LinkedIn Page you administer (create one first if necessary).
+2. **Auth** tab: add the authorized redirect URL `${APP_URL}/accounts/callback/linkedin`, then copy the **Client ID** and **Primary Client Secret** (the secondary secret is not used).
+3. **Products** tab: request both **Share on LinkedIn** (`w_member_social`) and **Sign In with LinkedIn using OpenID Connect** (`openid`, `profile`, `email`). Both must show as *Added* before you authorize; a pending product makes LinkedIn fail with `unauthorized_scope_error`.
+4. Set `linkedin_client_id` / `linkedin_client_secret` and restart the add-on.
+5. Scopes Shoutrrr requests: `openid`, `profile`, `email`, `w_member_social`.
+
+Notes:
+
+- The connection posts as the **signed-in member**. Posting to a Company Page needs `w_organization_social` from the Marketing Developer Platform, which the default flow does not request.
+- Member access tokens live ~60 days. Programmatic refresh requires Marketing Developer Platform access, so expect to reconnect the account when Shoutrrr marks it expired.
+- Engagement polling for LinkedIn additionally needs `r_member_social_feed`; Shoutrrr only requests it when LinkedIn Community Management is enabled in the instance settings.
 
 ### Facebook + Instagram (one Meta app)
 

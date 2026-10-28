@@ -52,6 +52,14 @@ The freellmapi add-on wraps the pre-built `ghcr.io/tashfeenahmed/freellmapi` ima
 
 The shoutrrr add-on wraps the pre-built `ghcr.io/coollabsio/shoutrrr` image (amd64 + aarch64 only; upstream ships no armv7). Bump `BUILD_FROM` + `BUILD_VERSION` in the Dockerfile (and `version` in `config.yaml`, plus `updater.json`) to update.
 
+### Postiz (gitroomhq/postiz-app)
+
+| Addon | Upstream Version | Addon Version | Last Synced |
+|-------|-----------------|---------------|-------------|
+| `postiz/` | v2.25.3 | 2.25.3 | 2026-10-28 |
+
+The postiz add-on wraps the pre-built `ghcr.io/gitroomhq/postiz-app` image (amd64 + aarch64). Bump `BUILD_FROM` + `BUILD_VERSION` in the Dockerfile (and `version` in `config.yaml`, plus `updater.json`) to update.
+
 ## Active Patches & Upstream PRs
 
 ### Securo

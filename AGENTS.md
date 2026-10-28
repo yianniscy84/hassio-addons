@@ -16,6 +16,7 @@ Repository URL: `https://github.com/yianniscy84/hassio-addons`
 | [`blinko/`](blinko/) | Production | `blinko` | `blinkospace/blinko` | No Ingress (port 1111) | — | 1111 | Node.js (upstream image), bundled PostgreSQL, Alpine (direct access) |
 | [`freellmapi/`](freellmapi/) | Production | `freellmapi` | `tashfeenahmed/freellmapi` | No Ingress | Direct (/mcp) | 3001 | Node.js 24 (upstream image), SQLite, Debian (direct access) |
 | [`shoutrrr/`](shoutrrr/) | Production | `shoutrrr` | `coollabsio/shoutrrr` | No Ingress (port 8080) | 8080 | 8080 | PHP 8.5 / Laravel 13 / Octane-FrankenPHP (upstream image), SQLite, Debian (direct access) |
+| [`postiz/`](postiz/) | Production | `postiz` | `gitroomhq/postiz-app` | No Ingress (port 5000) | Direct (/mcp) | 5000 | Node.js 22 (NestJS/Next.js upstream image), bundled PG 15 & Redis, Debian (direct access) |
 
 ---
 
@@ -61,6 +62,12 @@ cd shoutrrr
 docker build -t shoutrrr-addon .
 docker run -d --name shoutrrr-smoke -p 8080:8080 -v shoutrrr-data:/data shoutrrr-addon
 # Access UI: http://localhost:8080 | Health: /up | MCP: http://localhost:8080/mcp
+
+# Postiz (from postiz/)
+cd postiz
+docker build -t postiz-addon .
+docker run -d --name postiz-smoke -p 5000:5000 -v postiz-data:/data postiz-addon
+# Access UI: http://localhost:5000 | API: http://localhost:5000/api
 ```
 
 ---
@@ -111,6 +118,14 @@ docker run -d --name shoutrrr-smoke -p 8080:8080 -v shoutrrr-data:/data shoutrrr
 - **No Ingress:** Laravel/Inertia has no base-path support; direct port 8080 only. Arch: amd64 + aarch64.
 - **Data:** `/data/sqlite/database.sqlite`, `/data/storage` (media, logs, Passport keys), `/data/app_key`. Upstream allows 1 GiB video uploads, so snapshots can be large.
 - **On sync:** Re-check upstream `Dockerfile`, `docker/entrypoint.d/`, `docker/supervisord.conf`, and `.env.example.prod` for new start-up steps or required env.
+
+### Postiz (Node.js 22 / Debian)
+- **Upstream Base Image:** Extends `ghcr.io/gitroomhq/postiz-app:v2.25.3` (pinned tag). No source build.
+- **Runtime Stack:** Adds `postgresql`, `postgresql-contrib`, `redis-server`, `curl`, `python3`, `tzdata`, `bash`.
+- **Bundled Stack:** Embedded PostgreSQL 15 in `/data/postgres` and Redis on `127.0.0.1:6379`. Overridable via `db_url` and `redis_url`.
+- **Entrypoint (`run.sh`):** Applies options → auto-generates `JWT_SECRET` in `/data/jwt_secret` → ensures `/data/uploads` symlinked to `/uploads` → starts PostgreSQL & Redis → boots Nginx proxy (5000) → `pnpm run pm2` (runs `prisma-db-push` and starts backend, frontend, orchestrator).
+- **No Ingress:** Direct port 5000 only (OAuth callback redirects require exact public domain paths). Arch: amd64 + aarch64.
+- **Data:** `/data/postgres`, `/data/uploads`, `/data/jwt_secret`, `/data/options.json`.
 
 ---
 
