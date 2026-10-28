@@ -1,0 +1,83 @@
+name: "Shoutrrr"
+description: >-
+  Self-hosted social media scheduler — write once and publish to X, Bluesky,
+  LinkedIn, Facebook, Instagram, Threads, and Discord from a single calendar.
+version: "1.5.8"
+slug: "shoutrrr"
+init: false
+arch:
+  - amd64
+  - aarch64
+startup: application
+boot: auto
+ports:
+  8080/tcp: 8080
+ports_description:
+  8080/tcp: "Shoutrrr web UI, REST API and MCP endpoint"
+host_network: false
+apparmor: true
+webui: "http://[HOST]:[PORT:8080]/"
+watchdog: "http://[HOST]:[PORT:8080]/up"
+panel_icon: mdi:calendar-clock
+panel_title: "Shoutrrr"
+url: "https://github.com/coollabsio/shoutrrr"
+backup: hot
+stage: stable
+
+options:
+  app_url: "http://homeassistant.local:8080"
+  app_key: ""
+  log_level: "info"
+  registrations_enabled: false
+  trusted_proxies: ""
+  queue_workers: 1
+  mail_enabled: false
+  mail_host: ""
+  mail_port: 587
+  mail_username: ""
+  mail_password: ""
+  mail_encryption: "tls"
+  mail_from_address: ""
+  mail_from_name: "Shoutrrr"
+  x_client_id: ""
+  x_client_secret: ""
+  linkedin_client_id: ""
+  linkedin_client_secret: ""
+  facebook_client_id: ""
+  facebook_client_secret: ""
+  threads_client_id: ""
+  threads_client_secret: ""
+  google_client_id: ""
+  google_client_secret: ""
+  metrics_enabled: true
+  engagement_enabled: true
+  messages_enabled: true
+
+schema:
+  app_url: str
+  app_key: password?
+  log_level: list(debug|info|notice|warning|error)
+  registrations_enabled: bool
+  trusted_proxies: str?
+  queue_workers: int(1,4)
+  mail_enabled: bool
+  mail_host: str?
+  mail_port: port
+  mail_username: str?
+  mail_password: password?
+  mail_encryption: list(tls|ssl|none)
+  mail_from_address: str?
+  mail_from_name: str?
+  x_client_id: str?
+  x_client_secret: password?
+  linkedin_client_id: str?
+  linkedin_client_secret: password?
+  facebook_client_id: str?
+  facebook_client_secret: password?
+  threads_client_id: str?
+  threads_client_secret: password?
+  google_client_id: str?
+  google_client_secret: password?
+  metrics_enabled: bool
+  engagement_enabled: bool
+  messages_enabled: bool

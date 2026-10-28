@@ -15,6 +15,7 @@ Repository URL: `https://github.com/yianniscy84/hassio-addons`
 | [`memos/`](memos/) | Production | `memos` | `usememos/memos` | No Ingress (port 5230) | — | 5230 | Go (upstream image), SQLite/PostgreSQL, Alpine (direct access) |
 | [`blinko/`](blinko/) | Production | `blinko` | `blinkospace/blinko` | No Ingress (port 1111) | — | 1111 | Node.js (upstream image), bundled PostgreSQL, Alpine (direct access) |
 | [`freellmapi/`](freellmapi/) | Production | `freellmapi` | `tashfeenahmed/freellmapi` | No Ingress | Direct (/mcp) | 3001 | Node.js 24 (upstream image), SQLite, Debian (direct access) |
+| [`shoutrrr/`](shoutrrr/) | Production | `shoutrrr` | `coollabsio/shoutrrr` | No Ingress (port 8080) | 8080 | 8080 | PHP 8.5 / Laravel 13 / Octane-FrankenPHP (upstream image), SQLite, Debian (direct access) |
 
 ---
 
@@ -54,6 +55,12 @@ cd freellmapi
 docker build -t freellmapi-addon .
 docker run -d --name freellmapi-smoke -p 3001:3001 -v freellmapi-data:/data freellmapi-addon
 # Access UI & API: http://localhost:3001 | MCP: http://localhost:3001/mcp
+
+# Shoutrrr (from shoutrrr/)
+cd shoutrrr
+docker build -t shoutrrr-addon .
+docker run -d --name shoutrrr-smoke -p 8080:8080 -v shoutrrr-data:/data shoutrrr-addon
+# Access UI: http://localhost:8080 | Health: /up | MCP: http://localhost:8080/mcp
 ```
 
 ---
@@ -93,6 +100,17 @@ docker run -d --name freellmapi-smoke -p 3001:3001 -v freellmapi-data:/data free
 - **Entrypoint (`run.sh`):** Applies options → auto-generates AES-256 encryption key at `/data/.encryption_key` (or uses configured option) → symlinks `/app/server/data` to `/data` → drops privileges to UID `node` via `setpriv` before running `node server/dist/index.js`.
 - **No Ingress:** Direct port 3001 only (dashboard, `/v1` APIs, `/mcp`). Arch: amd64 + aarch64.
 - **Data:** `/data/freeapi.db` (SQLite) + backups and secrets in `/data`.
+
+### Shoutrrr (PHP 8.5 / Laravel 13 / Debian)
+- **Upstream Base Image:** Extends `ghcr.io/coollabsio/shoutrrr:1.5.8` (pinned tag). No source build.
+- **Runtime Stack:** Upstream image is PHP 8.5 + Octane/FrankenPHP with supervisord. Add-on adds `jq`, `curl`, `tzdata`.
+- **Entrypoint (`run.sh`):** Applies options → persists `/var/www/html/storage` → `/data/storage` and `/var/www/html/database/sqlite` → `/data/sqlite` (first boot copies the image skeleton) → APP_KEY from option, `/data/app_key`, or generated → chowns `/data` subtrees to `www-data` → hands off to `docker-php-serversideup-entrypoint /usr/local/bin/supervisor-start.sh`.
+- **Privilege model:** supervisord stays PID 1 as root (a process that dropped to `www-data` cannot re-open `/dev/fd/1`), and every `[program:*]` section is patched at build time with `user=www-data`. `supervisor-start.sh` re-chowns the files the root-run init scripts created, then execs supervisord.
+- **Startup automation:** The upstream serversideup entrypoint runs `storage:link`, `artisan migrate --force`, and `artisan optimize` on every boot; do not re-implement these in `run.sh`.
+- **Supervised processes:** octane (8080), queue worker (`QUEUE_WORKER_COUNT`, keep 1 on SQLite), scheduler, SSR (off). Losing the worker/scheduler stops scheduled publishing and polling.
+- **No Ingress:** Laravel/Inertia has no base-path support; direct port 8080 only. Arch: amd64 + aarch64.
+- **Data:** `/data/sqlite/database.sqlite`, `/data/storage` (media, logs, Passport keys), `/data/app_key`. Upstream allows 1 GiB video uploads, so snapshots can be large.
+- **On sync:** Re-check upstream `Dockerfile`, `docker/entrypoint.d/`, `docker/supervisord.conf`, and `.env.example.prod` for new start-up steps or required env.
 
 ---
 
@@ -135,6 +153,8 @@ See [`UPSTREAM.md`](UPSTREAM.md) for version matrix and sync tracking.
 | `onnxruntime` build failure | No musl wheel on Alpine | Keep `fastembed` excluded from `pyproject.toml`. |
 | `bashio` not found | Broken shebang or missing stub | Ensure shebang is `#!/usr/bin/with-contenv bashio`. |
 | PostgreSQL migration error (vector/crypto) | Missing extension libraries | Verify `postgresql16-contrib` and `pgvector` compile in `Dockerfile`. |
+| Login redirects to `http://` or loops (Shoutrrr) | `app_url` scheme mismatch, or proxy forwarding headers untrusted | Set `app_url` to the exact public URL; set `trusted_proxies: "*"` behind a proxy, then restart. |
+| `database is locked` (Shoutrrr) | More than one queue worker on SQLite | Keep `queue_workers: 1`. |
 
 ---
 

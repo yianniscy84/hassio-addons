@@ -44,6 +44,14 @@ The blinko add-on wraps the pre-built `blinkospace/blinko` image (amd64 + aarch6
 
 The freellmapi add-on wraps the pre-built `ghcr.io/tashfeenahmed/freellmapi` image (amd64 + aarch64). Bump `BUILD_FROM` in the Dockerfile (and `version` in `config.yaml`) to update.
 
+### Shoutrrr (coollabsio/shoutrrr)
+
+| Addon | Upstream Version | Addon Version | Last Synced |
+|-------|-----------------|---------------|-------------|
+| `shoutrrr/` | 1.5.8 | 1.5.8 | 2026-10-28 |
+
+The shoutrrr add-on wraps the pre-built `ghcr.io/coollabsio/shoutrrr` image (amd64 + aarch64 only; upstream ships no armv7). Bump `BUILD_FROM` + `BUILD_VERSION` in the Dockerfile (and `version` in `config.yaml`, plus `updater.json`) to update.
+
 ## Active Patches & Upstream PRs
 
 ### Securo
@@ -83,6 +91,8 @@ When syncing Securo from upstream:
 - https://github.com/diegosouzapw/OmniRoute
 - https://github.com/usememos/memos
 - https://github.com/blinkospace/blinko
+- https://github.com/tashfeenahmed/freellmapi
+- https://github.com/coollabsio/shoutrrr
 
 ## Sync Notes
 
@@ -130,3 +140,18 @@ When syncing Securo from upstream:
 - Bundled PostgreSQL in `/data/postgres` (default) mirrors the securo pattern; `db_url` option switches to an external server with auto `CREATE DATABASE`
 - `run.sh` replicates upstream `start.sh` (migrate → seed → server) with error handling — **re-check upstream `start.sh` on every sync** for new steps
 - On update: bump `BUILD_FROM` + `BUILD_VERSION` in `blinko/Dockerfile`, `version` in `blinko/config.yaml`, and `updater.json`
+
+### Shoutrrr
+
+- Uses the pre-built `ghcr.io/coollabsio/shoutrrr` image (pinned tag, not built from source; amd64 + aarch64)
+- HAOS-specific files maintained in this repo:
+  - `shoutrrr/run.sh` — entry script (bashio options → env, `/data` symlinks, APP_KEY lifecycle, handoff to the upstream serversideup entrypoint)
+  - `shoutrrr/supervisor-start.sh` — runs after the entrypoint's init scripts to re-chown root-created files, then execs supervisord
+  - `shoutrrr/Dockerfile` — extends the official image with jq/curl/tzdata + bashio stubs and patches every supervisord `[program:*]` with `user=www-data`
+  - `shoutrrr/config.yaml` — addon manifest (port 8080, options, schema)
+- Privileges: supervisord runs as root (needed to open `/dev/fd/1`) and every `[program:*]` carries `user=www-data`; PHP processes never run as root
+- No ingress: Laravel/Inertia has no base-path support; direct port 8080 only
+- Start-up automation is upstream's: `docker/entrypoint.d/10-init-app.sh` plus serversideup's `storage:link` → `migrate --force` → `optimize`. Do not duplicate it in `run.sh`; instead re-check `docker/entrypoint.d/`, `docker/supervisord.conf`, and `.env.example.prod` when syncing
+- Persistence mirrors upstream compose volumes: `/var/www/html/storage` → `/data/storage`, `/var/www/html/database/sqlite` → `/data/sqlite`
+- Add-on `app_url` is the source of truth for `APP_URL`, OAuth redirect URIs, `OCTANE_HTTPS` and `SESSION_SECURE_COOKIE`; keep it in sync with the URLs users actually open
+- On update: bump `BUILD_FROM` + `BUILD_VERSION` in `shoutrrr/Dockerfile`, `version` in `shoutrrr/config.yaml`, and `updater.json`

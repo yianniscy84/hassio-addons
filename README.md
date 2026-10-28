@@ -35,6 +35,7 @@
 | [**Memos**](memos/) | Stable | ![Memos Version](https://img.shields.io/badge/dynamic/yaml?label=&query=%24.version&url=https%3A%2F%2Fraw.githubusercontent.com%2Fyianniscy84%2Fhassio-addons%2Fmain%2Fmemos%2Fconfig.yaml&color=brightgreen&style=flat-square) | `5230` (Web/API) | ![aarch64](https://img.shields.io/badge/aarch64-green.svg?style=flat-square&logo=arm) ![amd64](https://img.shields.io/badge/amd64-green.svg?style=flat-square&logo=amd) ![armv7](https://img.shields.io/badge/armv7-green.svg?style=flat-square&logo=arm) | Self-hosted note-taking with tags, relations, attachments, and full-text search. |
 | [**Blinko**](blinko/) | Stable | ![Blinko Version](https://img.shields.io/badge/dynamic/yaml?label=&query=%24.version&url=https%3A%2F%2Fraw.githubusercontent.com%2Fyianniscy84%2Fhassio-addons%2Fmain%2Fblinko%2Fconfig.yaml&color=brightgreen&style=flat-square) | `1111` (Web/API) | ![aarch64](https://img.shields.io/badge/aarch64-green.svg?style=flat-square&logo=arm) ![amd64](https://img.shields.io/badge/amd64-green.svg?style=flat-square&logo=amd) | AI-powered card note-taking with Markdown, tags, plugins, and bundled PostgreSQL. |
 | [**FreeLLMAPI**](freellmapi/) | Stable | ![FreeLLMAPI Version](https://img.shields.io/badge/dynamic/yaml?label=&query=%24.version&url=https%3A%2F%2Fraw.githubusercontent.com%2Fyianniscy84%2Fhassio-addons%2Fmain%2Ffreellmapi%2Fconfig.yaml&color=brightgreen&style=flat-square) | `3001` (API/UI) | ![aarch64](https://img.shields.io/badge/aarch64-green.svg?style=flat-square&logo=arm) ![amd64](https://img.shields.io/badge/amd64-green.svg?style=flat-square&logo=amd) | OpenAI-compatible proxy and routing layer aggregating dozens of free LLM providers with smart fallbacks. |
+| [**Shoutrrr**](shoutrrr/) | Stable | ![Shoutrrr Version](https://img.shields.io/badge/dynamic/yaml?label=&query=%24.version&url=https%3A%2F%2Fraw.githubusercontent.com%2Fyianniscy84%2Fhassio-addons%2Fmain%2Fshoutrrr%2Fconfig.yaml&color=brightgreen&style=flat-square) | `8080` (Web/API/MCP) | ![aarch64](https://img.shields.io/badge/aarch64-green.svg?style=flat-square&logo=arm) ![amd64](https://img.shields.io/badge/amd64-green.svg?style=flat-square&logo=amd) | Self-hosted social media scheduler for X, Bluesky, LinkedIn, Facebook, Instagram, Threads and Discord. |
 
 ---
 
@@ -153,12 +154,30 @@ Click the button below to add this repository directly to your Home Assistant in
 
 ---
 
+### [Shoutrrr](shoutrrr/)
+
+<p align="center">
+  <img src="shoutrrr/icon.png" alt="Shoutrrr Logo" width="90">
+</p>
+
+**Shoutrrr** is a self-hosted social media scheduler — write a post once and publish it to every network, or queue it to go out on a recurring schedule, all from one calendar.
+
+- **Multi-platform Publishing**: X, Bluesky, LinkedIn, Facebook Pages, Instagram, Threads and Discord from a single composer.
+- **Queue & Calendar**: Recurring posting slots in your workspace timezone plus a month view of scheduled content.
+- **Analytics & Engagement**: Follower/post trends, per-post metrics, and a replies inbox where the platform API supports it.
+- **Workspaces & Team**: Multiple workspaces, roles, email invitations, and instance-level settings.
+- **API + MCP**: Passport bearer tokens, a REST API, and a Model Context Protocol server at `/mcp`.
+
+> Upstream project: [coollabsio/shoutrrr](https://github.com/coollabsio/shoutrrr) | [Documentation](shoutrrr/DOCS.md)
+
+---
+
 
 ## 🛠️ Support & Troubleshooting
 
 If you encounter issues or have suggestions:
 
-1. **Check Documentation**: Review the add-on specific `DOCS.md` ([Securo Docs](securo/DOCS.md) / [OmniRoute Docs](omniroute/DOCS.md) / [Memos Docs](memos/DOCS.md) / [Blinko Docs](blinko/DOCS.md) / [FreeLLMAPI Docs](freellmapi/DOCS.md)).
+1. **Check Documentation**: Review the add-on specific `DOCS.md` ([Securo Docs](securo/DOCS.md) / [OmniRoute Docs](omniroute/DOCS.md) / [Memos Docs](memos/DOCS.md) / [Blinko Docs](blinko/DOCS.md) / [FreeLLMAPI Docs](freellmapi/DOCS.md) / [Shoutrrr Docs](shoutrrr/DOCS.md)).
 2. **Review Add-on Logs**: Open the add-on in Home Assistant and check the **Log** tab for error traces.
 3. **Open an Issue**: Submit a report on [GitHub Issues](https://github.com/yianniscy84/hassio-addons/issues). Please include:
    - Home Assistant OS / Core version
