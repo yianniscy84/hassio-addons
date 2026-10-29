@@ -113,9 +113,21 @@ Two options, neither needs a developer app:
 
 Notes:
 
-- The connection posts as the **signed-in member**. Posting to a Company Page needs `w_organization_social` from the Marketing Developer Platform, which the default flow does not request.
+- The connection posts as the **signed-in member**. Posting to a Company Page needs `w_organization_social` from the Community Management API (see below).
 - Member access tokens live ~60 days. Programmatic refresh requires Marketing Developer Platform access, so expect to reconnect the account when Shoutrrr marks it expired.
 - Engagement polling for LinkedIn additionally needs `r_member_social_feed`; Shoutrrr only requests it when LinkedIn Community Management is enabled in the instance settings.
+
+#### Posting to a LinkedIn Page (company)
+
+Shoutrrr can publish as a Page, but the Page must be discovered through the partner-gated Community Management API:
+
+1. In the LinkedIn app, request the **Community Management API** product and complete app verification. Only then can the app be granted `rw_organization_admin`, `r_organization_social` and `w_organization_social`.
+2. Make sure your LinkedIn account is an **approved admin** of the Page (`organizationAcls` only returns APPROVED roles).
+3. In Shoutrrr open **Settings → Instance → Platforms** and enable **“LinkedIn Pages & engagement inbox (Community Management API)”** — this adds the restricted scopes to the LinkedIn consent request.
+4. Reconnect LinkedIn. After authorizing, Shoutrrr lists your personal profile **and** every Page you administer; pick the Page (you can select both).
+5. Re-target existing drafts/queued posts to the Page account — posts already pointed at the member account keep publishing as the member.
+
+Enabling step 3 before the product is approved makes the LinkedIn authorization fail with `unauthorized_scope_error`, including for personal accounts.
 
 ### Facebook + Instagram (one Meta app)
 
