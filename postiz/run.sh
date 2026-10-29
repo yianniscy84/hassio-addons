@@ -88,6 +88,64 @@ if [ -n "${OPENAI_API_KEY_OPT}" ]; then
 fi
 
 # --------------------------------------------------------------------------
+# Social provider OAuth apps — self-hosted Postiz requires your own apps.
+# Each option is exported only when set, so unset providers stay hidden.
+# --------------------------------------------------------------------------
+export_provider_env() {
+    local option="${1}"
+    local env_name="${2}"
+    local value
+
+    value=$(bashio::config "${option}")
+    if [ -n "${value}" ] && [ "${value}" != "null" ]; then
+        export "${env_name}=${value}"
+    fi
+}
+
+# X (Twitter) — OAuth 1.0a keys from the developer portal
+export_provider_env x_api_key X_API_KEY
+export_provider_env x_api_secret X_API_SECRET
+
+# LinkedIn (member) and LinkedIn Page share the same app
+export_provider_env linkedin_client_id LINKEDIN_CLIENT_ID
+export_provider_env linkedin_client_secret LINKEDIN_CLIENT_SECRET
+
+# Facebook + Instagram (via Meta Graph)
+export_provider_env facebook_app_id FACEBOOK_APP_ID
+export_provider_env facebook_app_secret FACEBOOK_APP_SECRET
+
+# Instagram (Standalone, Instagram Login / graph.instagram.com)
+export_provider_env instagram_app_id INSTAGRAM_APP_ID
+export_provider_env instagram_app_secret INSTAGRAM_APP_SECRET
+
+export_provider_env threads_app_id THREADS_APP_ID
+export_provider_env threads_app_secret THREADS_APP_SECRET
+
+export_provider_env youtube_client_id YOUTUBE_CLIENT_ID
+export_provider_env youtube_client_secret YOUTUBE_CLIENT_SECRET
+
+export_provider_env tiktok_client_id TIKTOK_CLIENT_ID
+export_provider_env tiktok_client_secret TIKTOK_CLIENT_SECRET
+
+export_provider_env pinterest_client_id PINTEREST_CLIENT_ID
+export_provider_env pinterest_client_secret PINTEREST_CLIENT_SECRET
+
+export_provider_env reddit_client_id REDDIT_CLIENT_ID
+export_provider_env reddit_client_secret REDDIT_CLIENT_SECRET
+
+export_provider_env discord_client_id DISCORD_CLIENT_ID
+export_provider_env discord_client_secret DISCORD_CLIENT_SECRET
+export_provider_env discord_bot_token DISCORD_BOT_TOKEN_ID
+
+export_provider_env mastodon_url MASTODON_URL
+export_provider_env mastodon_client_id MASTODON_CLIENT_ID
+export_provider_env mastodon_client_secret MASTODON_CLIENT_SECRET
+
+# GitHub OAuth login
+export_provider_env github_client_id GITHUB_CLIENT_ID
+export_provider_env github_client_secret GITHUB_CLIENT_SECRET
+
+# --------------------------------------------------------------------------
 # Database: bundled PostgreSQL (default) or external server via db_url
 # --------------------------------------------------------------------------
 PGDATA="/data/postgres"

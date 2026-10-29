@@ -48,4 +48,108 @@ configuration:
     description: >-
       Public URL endpoint for the Cloudflare R2 bucket (e.g.
       https://pub-xxxx.r2.dev or https://media.yourdomain.com).
+  x_api_key:
+    name: X (Twitter) API Key
+    description: >-
+      API Key from an X developer app. Set the app type to "Native App" and
+      register https://<your-domain>/integrations/social/x as the callback.
+  x_api_secret:
+    name: X (Twitter) API Key Secret
+    description: API Key Secret for the same X developer app.
+  linkedin_client_id:
+    name: LinkedIn Client ID
+    description: >-
+      Client ID from a LinkedIn app with "Share on LinkedIn", "Sign In with
+      LinkedIn using OpenID Connect" and "Advertising API" products.
+  linkedin_client_secret:
+    name: LinkedIn Client Secret
+    description: Client Secret for the same LinkedIn app.
+  facebook_app_id:
+    name: Facebook App ID
+    description: >-
+      App ID from a Meta app with Facebook Login and Instagram Graph API.
+      Callback https://<your-domain>/integrations/social/facebook
+  facebook_app_secret:
+    name: Facebook App Secret
+    description: App Secret for the same Meta app.
+  instagram_app_id:
+    name: Instagram Standalone App ID
+    description: >-
+      App ID from an Instagram developer app ("Instagram API with Instagram
+      Login"). Callback https://<your-domain>/integrations/social/instagram-standalone
+  instagram_app_secret:
+    name: Instagram Standalone App Secret
+    description: App Secret for the same Instagram app.
+  threads_app_id:
+    name: Threads App ID
+    description: >-
+      App ID from a Threads developer app. Callback
+      https://<your-domain>/integrations/social/threads
+  threads_app_secret:
+    name: Threads App Secret
+    description: App Secret for the same Threads app.
+  youtube_client_id:
+    name: YouTube Client ID
+    description: >-
+      OAuth 2.0 Client ID from Google Cloud Console with the YouTube Data API
+      enabled. Callback https://<your-domain>/integrations/social/youtube
+  youtube_client_secret:
+    name: YouTube Client Secret
+    description: OAuth 2.0 Client Secret for the same Google Cloud project.
+  tiktok_client_id:
+    name: TikTok Client ID
+    description: >-
+      Client Key from a TikTok developer app. Callback
+      https://<your-domain>/integrations/social/tiktok
+  tiktok_client_secret:
+    name: TikTok Client Secret
+    description: Client Secret for the same TikTok app.
+  pinterest_client_id:
+    name: Pinterest Client ID
+    description: >-
+      App ID from a Pinterest developer app. Callback
+      https://<your-domain>/integrations/social/pinterest
+  pinterest_client_secret:
+    name: Pinterest Client Secret
+    description: App Secret for the same Pinterest app.
+  reddit_client_id:
+    name: Reddit Client ID
+    description: >-
+      App ID from a Reddit "web app". Callback
+      https://<your-domain>/integrations/social/reddit
+  reddit_client_secret:
+    name: Reddit Client Secret
+    description: App secret for the same Reddit app.
+  discord_client_id:
+    name: Discord Client ID
+    description: >-
+      Application ID from the Discord developer portal (Bot + OAuth2 enabled).
+      Callback https://<your-domain>/integrations/social/discord
+  discord_client_secret:
+    name: Discord Client Secret
+    description: OAuth2 Client Secret for the same Discord application.
+  discord_bot_token:
+    name: Discord Bot Token
+    description: >-
+      Bot token for the same Discord application. Required to list guild
+      channels and publish messages.
+  mastodon_url:
+    name: Mastodon Instance URL
+    description: >-
+      Base URL of your Mastodon instance (default https://mastodon.social).
+      Only needed for self-registered Mastodon apps.
+  mastodon_client_id:
+    name: Mastodon Client ID
+    description: Client key of a Mastodon app registered on your instance.
+  mastodon_client_secret:
+    name: Mastodon Client Secret
+    description: Client secret of the same Mastodon app.
+  github_client_id:
+    name: GitHub Client ID
+    description: >-
+      OAuth App Client ID for "Sign in with GitHub". Use the callback URL that
+      Postiz shows on the login screen.
+  github_client_secret:
+    name: GitHub Client Secret
+    description: Client Secret for the same GitHub OAuth app.
 

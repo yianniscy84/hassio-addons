@@ -1,6 +1,6 @@
 # Home Assistant OS Add-on: Postiz
 
-[![Release](https://img.shields.io/badge/version-2.25.3-blue.svg?style=flat-square)](CHANGELOG.md)
+[![Release](https://img.shields.io/badge/version-2.25.3.1-blue.svg?style=flat-square)](CHANGELOG.md)
 [![Architectures](https://img.shields.io/badge/arch-amd64%20%7C%20aarch64-brightgreen.svg?style=flat-square)](#)
 [![Stage](https://img.shields.io/badge/stage-stable-green.svg?style=flat-square)](#)
 
