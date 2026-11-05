@@ -1,5 +1,10 @@
 # Changelog
 
+## 3.8.52.0
+
+- Adoption of standardized `<upstream_version>.<addon_revision>` versioning scheme
+- Aligned add-on version with upstream OmniRoute v3.8.52
+
 ## 0.3.8
 
 - Sync with upstream OmniRoute v3.8.52 (`:latest` image)

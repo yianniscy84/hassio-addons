@@ -2,7 +2,7 @@ name: "Shoutrrr"
 description: >-
   Self-hosted social media scheduler — write once and publish to X, Bluesky,
   LinkedIn, Facebook, Instagram, Threads, and Discord from a single calendar.
-version: "1.5.8"
+version: "1.5.8.0"
 slug: "shoutrrr"
 init: false
 arch:

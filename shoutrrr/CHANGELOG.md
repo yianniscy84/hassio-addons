@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.5.8.0
+
+- Adoption of standardized `<upstream_version>.<addon_revision>` versioning scheme
+- Aligned add-on version with upstream Shoutrrr 1.5.8
+
 ## 1.5.8
 
 - Initial release of the Shoutrrr Home Assistant OS add-on.

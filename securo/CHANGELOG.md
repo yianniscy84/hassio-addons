@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.17.0.0
+
+- Sync with upstream Securo v0.17.0
+- Adoption of standardized `<upstream_version>.<addon_revision>` versioning scheme
+- Upstream: Contract tracking for financing and loans (mortgages, car financing, student loans) with amortization schedules (Price/SAC), payoff tracking, and payment breakdown
+- Upstream: Split mortgage payments into principal and interest against linked secured property
+- Upstream: Loan contract terms override on bank-connected accounts
+- Upstream: Monthly budget rollover, surplus analysis, and multi-month forecasting
+- Upstream: One-click suggestion of budget limits from recent spending history
+- Upstream: Net cash-flow bars in Reports and comparative balance evolution chart on Dashboard
+- Upstream: MCP server additions (transaction notes/tags, category groups, goal and budget updates, 2026-07-28 Streamable HTTP transport)
+- Upstream: Database connection resilience with `pool_pre_ping` for failover recovery
+- Upstream: Multiple fixes across group splits, projection ownership shares, credit settlements, and registration settings
+- Addon: Re-sequenced upstream migrations (`099` through `102` renumbered to `100` through `103`) to maintain unbroken Alembic chain from HAOS migration 098/099
+- Addon: Rebased Patch 0002 for upstream v0.17.0 (fingerprints without session account_uid, duplicate connection adoption on OAuth reauth, 999-day configurable history window)
+- Addon: Regenerated `uv.lock` with `fastembed` excluded for Alpine musl compatibility
+
 ## 0.35.0
 
 - Sync with upstream Securo v0.16.6

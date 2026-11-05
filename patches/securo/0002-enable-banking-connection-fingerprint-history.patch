@@ -1,10 +1,10 @@
-From bc50fdc6daff011e70d41b1eef207f805fa8757d Mon Sep 17 00:00:00 2001
+﻿From bc50fdc6daff011e70d41b1eef207f805fa8757d Mon Sep 17 00:00:00 2001
 From: Ioannis Ioannou <ioannis.ioannou.84@gmail.com>
-Date: Tue, 27 Oct 2026 08:50:00 +0200
+Date: Thu, 5 Nov 2026 18:15:00 +0200
 Subject: [PATCH] fix(enable-banking): stable fingerprints, duplicate-connection
  adoption, and configurable history window
 
-Four fixes layered on top of upstream v0.16.6.
+Four fixes layered on top of upstream v0.17.0.
 None is upstream behaviour, so they are carried as an add-on patch.
 
 1. _txn_fingerprint excludes the session-scoped account_uid. Enable
@@ -45,44 +45,35 @@ index bac3b39..5ddc9bf 100644
  
      # SimpleFIN Bridge (US/intl banks, paste-a-token flow). Off by default.
      # The bridge URL defaults to the beta/sandbox host so users can test with
-
 diff --git a/backend/app/providers/enable_banking.py b/backend/app/providers/enable_banking.py
-index d257096..18d4c6f 100644
+index ffad39a..851f905 100644
 --- a/backend/app/providers/enable_banking.py
 +++ b/backend/app/providers/enable_banking.py
-@@ -150,6 +150,10 @@ def _txn_fingerprint(account_uid: str, raw: dict) -> str:
+@@ -165,6 +165,10 @@ def _txn_fingerprint(account_uid: str, raw: dict) -> str:
  
      EB's `entry_reference` is unreliable across providers, so we hash the
      fields most likely to persist across re-fetches of the same booked txn.
 +    Account UIDs in Enable Banking are ephemeral per-session tokens, so we
 +    deliberately exclude account_uid from the hash so transactions maintain
 +    identical fingerprints across reauthorization sessions. The counterparty
-+    IBANs below keep the hash account-specific instead of session-specific.
++    identities keep the hash account-specific instead of session-specific.
      Pending → booked transitions deliberately produce a different id; the
      sync layer's pending↔posted twin matcher handles that.
      """
-@@ -169,7 +173,6 @@ def _txn_fingerprint(account_uid: str, raw: dict) -> str:
-     creditor_identity = creditor_iban.strip() or _counterparty_name(raw, "creditor")
-     debtor_identity = debtor_iban.strip() or _counterparty_name(raw, "debtor")
+@@ -172,7 +176,6 @@ def _txn_fingerprint(account_uid: str, raw: dict) -> str:
+     creditor_identity = _counterparty_identity(raw, "creditor")
+     debtor_identity = _counterparty_identity(raw, "debtor")
      parts = [
 -        str(account_uid),
          str(raw.get("booking_date") or ""),
          str(raw.get("value_date") or ""),
          str(raw.get("transaction_date") or ""),
-@@ -610,14 +613,22 @@ class EnableBankingProvider(BankProvider):
-         today = datetime.now(timezone.utc).date()
-         if since is not None:
+@@ -691,12 +694,15 @@ class EnableBankingProvider(BankProvider):
              return await self._fetch_transactions(
--                account_external_id, since, today, payee_source
-+                account_external_id, since, today, payee_source, longest=False
+                 account_external_id, since, today, payee_source
              )
-+        # ENABLE_BANKING_HISTORY_DAYS is an add-on option (default 999) because
-+        # many banks expose far more history than the 90 days upstream defaults
-+        # to. `strategy="longest"` asks EB for the widest window the bank will
-+        # actually serve, so an over-long request is narrowed by the bank
-+        # instead of rejected outright. The WRONG_TRANSACTIONS_PERIOD retry
-+        # below still covers banks that reject even that.
-+        history_days = max(1, get_settings().enable_banking_history_days)
++        settings = get_settings()
++        history_days = max(1, settings.enable_banking_history_days)
          try:
              return await self._fetch_transactions(
                  account_external_id,
@@ -94,7 +85,7 @@ index d257096..18d4c6f 100644
              )
          except httpx.HTTPStatusError as exc:
              if not _is_wrong_period_error(exc.response):
-@@ -625,7 +636,7 @@ class EnableBankingProvider(BankProvider):
+@@ -704,7 +710,7 @@ class EnableBankingProvider(BankProvider):
              logger.warning(
                  "Enable Banking rejected a %d-day history window for account %s; "
                  "retrying with %d days",
@@ -103,7 +94,7 @@ index d257096..18d4c6f 100644
                  account_external_id,
                  FALLBACK_HISTORY_DAYS,
              )
-@@ -634,6 +645,7 @@ class EnableBankingProvider(BankProvider):
+@@ -713,6 +719,7 @@ class EnableBankingProvider(BankProvider):
                  _history_start(today, FALLBACK_HISTORY_DAYS),
                  today,
                  payee_source,
@@ -111,7 +102,7 @@ index d257096..18d4c6f 100644
              )
  
      async def _fetch_transactions(
-@@ -642,6 +654,7 @@ class EnableBankingProvider(BankProvider):
+@@ -721,6 +728,7 @@ class EnableBankingProvider(BankProvider):
          start: date,
          end: date,
          payee_source: str,
@@ -119,7 +110,7 @@ index d257096..18d4c6f 100644
      ) -> list[TransactionData]:
          date_from = start.isoformat()
          date_to = end.isoformat()
-@@ -651,6 +664,8 @@ class EnableBankingProvider(BankProvider):
+@@ -732,6 +740,8 @@ class EnableBankingProvider(BankProvider):
          seen_transaction_ids: set[str] = set()
          for _ in range(TRANSACTION_PAGE_LIMIT):
              params: dict[str, Any] = {"date_from": date_from, "date_to": date_to}
@@ -128,9 +119,8 @@ index d257096..18d4c6f 100644
              if continuation_key:
                  params["continuation_key"] = continuation_key
              page = await self._request(
-
 diff --git a/backend/app/services/connection_service.py b/backend/app/services/connection_service.py
-index 600eb07..e6f0a1c 100644
+index 595b56b..28e4b43 100644
 --- a/backend/app/services/connection_service.py
 +++ b/backend/app/services/connection_service.py
 @@ -1328,6 +1328,39 @@ async def handle_oauth_callback(
@@ -218,30 +208,30 @@ index 600eb07..e6f0a1c 100644
 +        # matters — the survivor must not change between syncs.
 +        group.sort(key=lambda a: str(a.id))
 +        primary, duplicates = group[0], group[1:]
-+        primary_ext_ids = {primary.external_id} if primary.external_id else set()
-+        primary_fps = {
-+            (t.external_id, t.amount, t.date, t.type, t.description)
-+            for t in (await session.execute(
-+                select(Transaction).where(Transaction.account_id == primary.id)
-+            )).scalars().all()
-+        }
-+        for dup in duplicates:
-+            dup_txs = list(
-+                (
-+                    await session.execute(
-+                        select(Transaction).where(Transaction.account_id == dup.id)
-+                    )
-+                ).scalars().all()
++        primary_ext_ids = (
++            await session.execute(
++                select(Transaction.external_id).where(
++                    Transaction.account_id == primary.id,
++                    Transaction.external_id.is_not(None),
++                )
 +            )
-+            for tx in dup_txs:
-+                fp = (tx.external_id, tx.amount, tx.date, tx.type, tx.description)
-+                if (tx.external_id and tx.external_id in primary_ext_ids) or fp in primary_fps:
-+                    await session.delete(tx)
++        ).scalars().all()
++        seen_primary_ext_ids = set(primary_ext_ids)
++
++        for dup in duplicates:
++            dup_txns = (
++                await session.execute(
++                    select(Transaction).where(Transaction.account_id == dup.id)
++                )
++            ).scalars().all()
++            for txn in dup_txns:
++                if txn.external_id and txn.external_id in seen_primary_ext_ids:
++                    await session.delete(txn)
 +                else:
-+                    tx.account_id = primary.id
-+                    if tx.external_id:
-+                        primary_ext_ids.add(tx.external_id)
-+                    primary_fps.add(fp)
++                    txn.account_id = primary.id
++                    if txn.external_id:
++                        seen_primary_ext_ids.add(txn.external_id)
++
 +            await session.execute(
 +                update(CreditCardBill)
 +                .where(CreditCardBill.account_id == dup.id)
@@ -255,7 +245,7 @@ index 600eb07..e6f0a1c 100644
  async def _find_existing_connected_account(
      session: AsyncSession,
      connection: BankConnection,
-@@ -2339,6 +2447,9 @@ async def sync_connection(
+@@ -2377,6 +2485,9 @@ async def sync_connection(
          merged_count = 0
          live_txn_external_ids: dict[uuid.UUID, set[str]] = {}
          incomplete_fetch_account_ids: set[uuid.UUID] = set()
@@ -265,20 +255,19 @@ index 600eb07..e6f0a1c 100644
          accounts_data = await provider.get_accounts(credentials)
          incoming_external_ids = {acc.external_id for acc in accounts_data}
          incoming_institution_external_ids = frozenset(
-
 diff --git a/backend/tests/test_connection_service.py b/backend/tests/test_connection_service.py
-index 082b851..7258e2d 100644
+index f10231c..6800c8c 100644
 --- a/backend/tests/test_connection_service.py
 +++ b/backend/tests/test_connection_service.py
-@@ -28,6 +28,7 @@ from app.providers.base import (
- )
+@@ -29,6 +29,7 @@ from app.providers.base import (
+ from app.providers.enable_banking import EnableBankingProvider
  from app.services.text_similarity import token_overlap
  from app.services.connection_service import (
 +    _cleanup_legacy_duplicate_accounts,
      _find_existing_connected_account,
      _merge_sync_metadata,
      _match_pluggy_category,
-@@ -480,6 +481,311 @@ async def test_token_reconnect_updates_existing_connection_without_deleting_acco
+@@ -481,6 +482,311 @@ async def test_token_reconnect_updates_existing_connection_without_deleting_acco
      mock_provider.handle_oauth_callback.assert_awaited_once_with("fresh-setup-token")
  
  
@@ -590,9 +579,8 @@ index 082b851..7258e2d 100644
  @pytest.mark.asyncio
  async def test_token_reconnect_rejects_provider_mismatch(
      session: AsyncSession, test_user, test_workspace
-
 diff --git a/backend/tests/test_providers_enable_banking.py b/backend/tests/test_providers_enable_banking.py
-index 34e3a9f..31ad05d 100644
+index da646fd..dd89cfd 100644
 --- a/backend/tests/test_providers_enable_banking.py
 +++ b/backend/tests/test_providers_enable_banking.py
 @@ -17,6 +17,7 @@ from cryptography.hazmat.primitives import serialization
@@ -603,7 +591,7 @@ index 34e3a9f..31ad05d 100644
  from app.providers.base import (
      ProviderUserActionRequired,
      SessionExpiredError,
-@@ -451,7 +452,13 @@ def _span_days(request: httpx.Request) -> int:
+@@ -512,7 +513,13 @@ def _span_days(request: httpx.Request) -> int:
  
  
  @pytest.mark.asyncio
@@ -618,7 +606,7 @@ index 34e3a9f..31ad05d 100644
      provider = EnableBankingProvider()
      requests: list[httpx.Request] = []
  
-@@ -464,7 +471,28 @@ async def test_get_transactions_default_window_is_90_days_inclusive(eb_keys):
+@@ -525,7 +532,28 @@ async def test_get_transactions_default_window_is_90_days_inclusive(eb_keys):
  
      assert len(requests) == 1
      assert requests[0].url.params["date_to"] == date.today().isoformat()
@@ -648,7 +636,7 @@ index 34e3a9f..31ad05d 100644
  
  
  @pytest.mark.asyncio
-@@ -495,9 +523,13 @@ async def test_get_transactions_retries_shorter_window_on_wrong_period(eb_keys):
+@@ -556,9 +584,12 @@ async def test_get_transactions_retries_shorter_window_on_wrong_period(eb_keys):
          transactions = await provider.get_transactions(_CREDENTIALS, "acc-1")
  
      assert [_span_days(r) for r in requests] == [
@@ -659,11 +647,10 @@ index 34e3a9f..31ad05d 100644
 +    # The retry is a plain bounded window: no strategy, so a bank that caps the
 +    # range gets exactly the fallback and nothing more.
 +    assert "strategy" not in requests[1].url.params
-+    assert [t.external_id for t in transactions] == ["tx-1"]
-     assert [t.external_id for t in transactions] == ["tx-1"]
- 
- 
-@@ -829,3 +861,42 @@ def test_txn_fingerprint_includes_transaction_date():
+     expected_id = _entry_reference_external_id(
+         "tx-1",
+         {"amount": "5.00", "currency": "EUR"},
+@@ -981,6 +1012,45 @@ def test_txn_fingerprint_includes_transaction_date():
      assert fp1 != fp2
  
  
@@ -706,3 +693,6 @@ index 34e3a9f..31ad05d 100644
 +    assert _txn_fingerprint("acc", one) != _txn_fingerprint("acc", two)
 +
 +
+ def test_entry_reference_external_id_differs_on_other_transaction_details():
+     """A shared entry_reference with equal amount, currency and dates must
+     still separate a charge from its refund and settlement lines for

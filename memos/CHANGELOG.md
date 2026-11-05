@@ -1,8 +1,9 @@
 # Changelog
 
-## 26.11.0
+## 26.11.0.0
 
 - Sync with upstream Memos 26.11.0 (from v0.31.0; upstream transitioned to CalVer)
+- Adoption of standardized `<upstream_version>.<addon_revision>` versioning scheme
 - Editor: fixed Japanese and Korean IME composition in Safari
 - Attachments: explicit JSON errors and 404s for unreadable/missing attachments with cause logging
 - Server: fixed cache eviction race conditions under concurrent load

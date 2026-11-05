@@ -3,7 +3,7 @@ description: >-
   AI-powered card note-taking. Capture fleeting thoughts instantly with
   Markdown, tags, plugins, and AI-enhanced retrieval — self-hosted and
   private.
-version: "1.8.9"
+version: "1.8.9.0"
 slug: "blinko"
 init: false
 arch:

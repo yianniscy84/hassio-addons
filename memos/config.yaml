@@ -2,7 +2,7 @@ name: "Memos"
 description: >-
   Self-hosted note-taking and memo service. Write, organize, and share
   memos with tags, relations, attachments, and full-text search.
-version: "26.11.0"
+version: "26.11.0.0"
 slug: "memos"
 init: false
 arch:

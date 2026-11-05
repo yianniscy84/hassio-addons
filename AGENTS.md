@@ -139,6 +139,7 @@ See [`UPSTREAM.md`](UPSTREAM.md) for version matrix and sync tracking.
    - `backend/pyproject.toml` (fastembed exclusion for Alpine musl)
    - `backend/alembic/versions/098_account_stable_external_id_legacy_rename.py` (legacy rename migration)
    - Upstream's migration 098 (`098_loan_property_link.py`) is renumbered to `099_loan_property_link.py` (`revises: 098`)
+   - Upstream migrations 099–102 are renumbered to 100–103 (`100_loan_terms.py`, `101_registration_setting_follows_env.py`, `102_mortgage_payment_allocations.py`, `103_backfill_enable_banking_external_id.py`)
 3. **Re-apply active patches (see [`UPSTREAM.md`](UPSTREAM.md)):**
    - Check if upstream merged the PR in the new release.
    - If not yet merged upstream, re-apply active patches:
@@ -151,8 +152,8 @@ See [`UPSTREAM.md`](UPSTREAM.md) for version matrix and sync tracking.
 
 ## Release Procedure (All Add-ons)
 
-1. Bump `version` in `<addon>/config.yaml` (e.g., `version: "0.29.1"`).
-2. **Add release notes in `<addon>/CHANGELOG.md`** under `## X.Y.Z`.
+1. Bump `version` in `<addon>/config.yaml` using `<upstream_version>.<addon_revision>` (e.g., `version: "0.17.0.0"`).
+2. **Add release notes in `<addon>/CHANGELOG.md`** under `## <upstream_version>.<addon_revision>`.
 3. Update version in `UPSTREAM.md` and `<addon>/updater.json` if applicable.
 4. Commit and push to `origin/main`. HAOS automatically detects the version bump and prompts users to update.
 

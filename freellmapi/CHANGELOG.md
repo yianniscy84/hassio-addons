@@ -1,8 +1,9 @@
 # Changelog
 
-## 0.16.19
+## 0.16.19.0
 
 - Sync with upstream FreeLLMAPI v0.16.19 (from v0.16.8)
+- Adoption of standardized `<upstream_version>.<addon_revision>` versioning scheme
 - Audio and video provider catalog expansion
 - New provider support including nabh.cloud and JamAI
 - Maintenance, streaming stability, and upstream proxy fixes

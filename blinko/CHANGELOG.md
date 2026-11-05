@@ -1,8 +1,9 @@
 # Changelog
 
-## 1.8.9
+## 1.8.9.0
 
 - Sync with upstream Blinko 1.8.9 (from 1.8.8)
+- Adoption of standardized `<upstream_version>.<addon_revision>` versioning scheme
 - Security hardening and maintenance improvements
 - Compatibility fixes across client and server
 - No breaking changes or database migrations required

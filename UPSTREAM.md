@@ -2,13 +2,19 @@
 
 This file tracks upstream versions for each addon.
 
+## Versioning Policy
+
+All add-ons adhere to a 4-part versioning format: `<upstream_version>.<addon_revision>`.
+- The first segments mirror the upstream release version (e.g. `0.17.0`, `1.8.9`, `26.11.0`, `3.8.52`).
+- The 4th segment represents the add-on packaging/revision number (`.0` for upstream sync, `.1`, `.2` for add-on hotfixes).
+
 ## Version Matrix
 
 ### Securo (securo-finance/securo)
 
 | Addon | Upstream Version | Addon Version | Last Synced |
 |-------|-----------------|---------------|-------------|
-| `securo/` | v0.16.6 | 0.35.0 | 2026-10-27 |
+| `securo/` | v0.17.0 | 0.17.0.0 | 2026-11-05 |
 
 The Securo test add-on (`securo-test/`) was removed on 2026-10-04; `securo/` is now the only tracked Securo add-on and is validated directly via `docker build` + smoke test before release.
 
@@ -16,7 +22,7 @@ The Securo test add-on (`securo-test/`) was removed on 2026-10-04; `securo/` is 
 
 | Addon | Upstream Version | Addon Version | Last Synced |
 |-------|-----------------|---------------|-------------|
-| `omniroute/` | v3.8.52 | 0.3.8 | 2026-10-26 |
+| `omniroute/` | v3.8.52 | 3.8.52.0 | 2026-11-05 |
 
 The OmniRoute test add-on (`omniroute-test/`) was removed on 2026-10-17; `omniroute/` is now the only tracked OmniRoute add-on and is validated directly via `docker build` + smoke test before release. Clones from upstream Git tags. Bump `OMNIROUTE_VERSION` in the Dockerfile to update.
 
@@ -24,7 +30,7 @@ The OmniRoute test add-on (`omniroute-test/`) was removed on 2026-10-17; `omniro
 
 | Addon | Upstream Version | Addon Version | Last Synced |
 |-------|-----------------|---------------|-------------|
-| `memos/` | 26.11.0 | 26.11.0 | 2026-11-05 |
+| `memos/` | 26.11.0 | 26.11.0.0 | 2026-11-05 |
 
 The memos add-on wraps the pre-built `neosmemo/memos` image. Bump `BUILD_FROM` in the Dockerfile (and `version` in `config.yaml`) to update.
 
@@ -32,7 +38,7 @@ The memos add-on wraps the pre-built `neosmemo/memos` image. Bump `BUILD_FROM` i
 
 | Addon | Upstream Version | Addon Version | Last Synced |
 |-------|-----------------|---------------|-------------|
-| `blinko/` | 1.8.9 | 1.8.9 | 2026-11-05 |
+| `blinko/` | 1.8.9 | 1.8.9.0 | 2026-11-05 |
 
 The blinko add-on wraps the pre-built `blinkospace/blinko` image (amd64 + aarch64 only). Bump `BUILD_FROM` in the Dockerfile (and `version` in `config.yaml`) to update.
 
@@ -40,7 +46,7 @@ The blinko add-on wraps the pre-built `blinkospace/blinko` image (amd64 + aarch6
 
 | Addon | Upstream Version | Addon Version | Last Synced |
 |-------|-----------------|---------------|-------------|
-| `freellmapi/` | v0.16.19 | 0.16.19 | 2026-11-05 |
+| `freellmapi/` | v0.16.19 | 0.16.19.0 | 2026-11-05 |
 
 The freellmapi add-on wraps the pre-built `ghcr.io/tashfeenahmed/freellmapi` image (amd64 + aarch64). Bump `BUILD_FROM` in the Dockerfile (and `version` in `config.yaml`) to update.
 
@@ -48,7 +54,7 @@ The freellmapi add-on wraps the pre-built `ghcr.io/tashfeenahmed/freellmapi` ima
 
 | Addon | Upstream Version | Addon Version | Last Synced |
 |-------|-----------------|---------------|-------------|
-| `shoutrrr/` | 1.5.8 | 1.5.8 | 2026-10-28 |
+| `shoutrrr/` | 1.5.8 | 1.5.8.0 | 2026-11-05 |
 
 The shoutrrr add-on wraps the pre-built `ghcr.io/coollabsio/shoutrrr` image (amd64 + aarch64 only; upstream ships no armv7). Bump `BUILD_FROM` + `BUILD_VERSION` in the Dockerfile (and `version` in `config.yaml`, plus `updater.json`) to update.
 
@@ -112,6 +118,7 @@ When syncing Securo from upstream:
   - `securo/backend/pyproject.toml` — fastembed excluded (musl incompatibility)
   - `securo/backend/alembic/versions/098_account_stable_external_id_legacy_rename.py` — legacy column rename for 0.32/0.33 upgrades
   - Upstream's migration 098 (`098_loan_property_link.py`) is renumbered to `099_loan_property_link.py` (`revises: 098`) to prevent collision.
+  - Upstream migrations 099–102 are renumbered to 100–103 (`100_loan_terms.py`, `101_registration_setting_follows_env.py`, `102_mortgage_payment_allocations.py`, `103_backfill_enable_banking_external_id.py`).
 - Active patches from `patches/securo/` must be reapplied if upstream has not yet merged them.
 - `uv.lock` must be regenerated after syncing `pyproject.toml` (`uv lock`).
 - `frontend/dist/` is NOT committed — built during `docker build`.

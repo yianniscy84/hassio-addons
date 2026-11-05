@@ -25,7 +25,7 @@ RUN sed -i 's/\r//' /usr/local/lib/bashio_stub.sh /usr/local/lib/with-contenv-st
     && cp /usr/local/lib/with-contenv-stub /usr/bin/with-contenv \
     && chmod +x /usr/bin/with-contenv
 
-ARG BUILD_VERSION=1.5.8
+ARG BUILD_VERSION=1.5.8.0
 ARG BUILD_ARCH=amd64
 
 LABEL \
