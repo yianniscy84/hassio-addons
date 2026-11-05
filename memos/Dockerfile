@@ -1,4 +1,4 @@
-ARG BUILD_FROM=neosmemo/memos:0.31.0
+ARG BUILD_FROM=neosmemo/memos:26.11.0
 
 # ============================================================================
 # Runtime — based on the official Memos image (neosmemo/memos)
@@ -29,7 +29,7 @@ RUN if ! command -v with-contenv >/dev/null 2>&1; then \
       chmod +x /usr/bin/with-contenv; \
     fi
 
-ARG BUILD_VERSION=0.31.0
+ARG BUILD_VERSION=26.11.0
 ARG BUILD_ARCH=amd64
 
 LABEL \

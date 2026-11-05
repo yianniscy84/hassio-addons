@@ -89,20 +89,20 @@ docker run -d --name postiz-smoke -p 5000:5000 -v postiz-data:/data postiz-addon
 - **Persistent Secrets:** Stored at `/data/jwt_secret` and `/data/api_key_secret`.
 
 ### Memos (Go / Alpine)
-- **Upstream Base Image:** Extends `neosmemo/memos:0.31.0` (pinned tag). No source build.
+- **Upstream Base Image:** Extends `neosmemo/memos:26.11.0` (pinned tag). No source build.
 - **Entrypoint (`run.sh`):** Applies options → optional PostgreSQL `CREATE DATABASE` → re-enters the upstream `entrypoint.sh`, which fixes ownership and drops to UID 10001 via `su-exec` before exec'ing the memos binary.
 - **No Ingress:** Upstream has no base-path support (`usememos/memos#3781`); direct port 5230 only.
 - **Data:** `MEMOS_DATA=/data` (SQLite DB + attachments). External databases are reached via internal DNS `{REPO}-{SLUG}` (see `memos/DOCS.md`).
 
 ### Blinko (Node.js / Alpine)
-- **Upstream Base Image:** Extends `blinkospace/blinko:1.8.8` (pinned tag). No source build. Runs as root; `dumb-init` is upstream's PID 1 but is replaced by `run.sh`.
+- **Upstream Base Image:** Extends `blinkospace/blinko:1.8.9` (pinned tag). No source build. Runs as root; `dumb-init` is upstream's PID 1 but is replaced by `run.sh`.
 - **Bundled PostgreSQL:** Default DB lives in `/data/postgres` (initdb → pg_ctl → pg_isready wait → trap cleanup, mirroring securo). Override with the `db_url` option for an external server (auto `CREATE DATABASE` via python3 DSN parse + psql).
 - **Entrypoint (`run.sh`):** Options → generate `/data/nextauth_secret` → start/verify DB → `npx prisma migrate deploy` + `seed.js` (replicates upstream `start.sh` with error handling) → `node server/index.js` with SIGTERM trap.
 - **No Ingress:** Direct port 1111 only. Arch: amd64 + aarch64 (upstream ships no armv7).
 - **Storage:** `/app/.blinko` is a symlink into `/data/.blinko` so attachments land in snapshots. On sync, re-check upstream `start.sh` for new steps.
 
 ### FreeLLMAPI (Node.js / Debian)
-- **Upstream Base Image:** Extends `ghcr.io/tashfeenahmed/freellmapi:v0.16.8` (pinned tag). No source build.
+- **Upstream Base Image:** Extends `ghcr.io/tashfeenahmed/freellmapi:v0.16.19` (pinned tag). No source build.
 - **Runtime Stack:** Adds `bash`, `curl`, `python3`, `tzdata`.
 - **Entrypoint (`run.sh`):** Applies options → auto-generates AES-256 encryption key at `/data/.encryption_key` (or uses configured option) → symlinks `/app/server/data` to `/data` → drops privileges to UID `node` via `setpriv` before running `node server/dist/index.js`.
 - **No Ingress:** Direct port 3001 only (dashboard, `/v1` APIs, `/mcp`). Arch: amd64 + aarch64.

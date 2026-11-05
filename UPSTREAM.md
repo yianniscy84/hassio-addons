@@ -24,7 +24,7 @@ The OmniRoute test add-on (`omniroute-test/`) was removed on 2026-10-17; `omniro
 
 | Addon | Upstream Version | Addon Version | Last Synced |
 |-------|-----------------|---------------|-------------|
-| `memos/` | v0.31.0 | 0.31.0 | 2026-10-06 |
+| `memos/` | 26.11.0 | 26.11.0 | 2026-11-05 |
 
 The memos add-on wraps the pre-built `neosmemo/memos` image. Bump `BUILD_FROM` in the Dockerfile (and `version` in `config.yaml`) to update.
 
@@ -32,7 +32,7 @@ The memos add-on wraps the pre-built `neosmemo/memos` image. Bump `BUILD_FROM` i
 
 | Addon | Upstream Version | Addon Version | Last Synced |
 |-------|-----------------|---------------|-------------|
-| `blinko/` | 1.8.8 | 1.8.8 | 2026-10-06 |
+| `blinko/` | 1.8.9 | 1.8.9 | 2026-11-05 |
 
 The blinko add-on wraps the pre-built `blinkospace/blinko` image (amd64 + aarch64 only). Bump `BUILD_FROM` in the Dockerfile (and `version` in `config.yaml`) to update.
 
@@ -40,7 +40,7 @@ The blinko add-on wraps the pre-built `blinkospace/blinko` image (amd64 + aarch6
 
 | Addon | Upstream Version | Addon Version | Last Synced |
 |-------|-----------------|---------------|-------------|
-| `freellmapi/` | v0.16.8 | 0.16.8 | 2026-10-26 |
+| `freellmapi/` | v0.16.19 | 0.16.19 | 2026-11-05 |
 
 The freellmapi add-on wraps the pre-built `ghcr.io/tashfeenahmed/freellmapi` image (amd64 + aarch64). Bump `BUILD_FROM` in the Dockerfile (and `version` in `config.yaml`) to update.
 
