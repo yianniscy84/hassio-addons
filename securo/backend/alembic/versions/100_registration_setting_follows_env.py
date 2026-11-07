@@ -13,8 +13,8 @@ install that asked for registration to be closed.
 """
 from alembic import op
 
-revision = "101"
-down_revision = "100"
+revision = "100"
+down_revision = "099"
 branch_labels = None
 depends_on = None
 
@@ -28,11 +28,10 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     # Put the seed back where nothing has been saved since, so the
-    # schema at 100 sees the row it always had.
+    # schema at 098 sees the row it always had.
     op.execute(
         "INSERT INTO app_settings (key, value) "
         "SELECT 'registration_enabled', 'true' "
         "WHERE NOT EXISTS "
         "(SELECT 1 FROM app_settings WHERE key = 'registration_enabled')"
     )
-

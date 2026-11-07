@@ -1,15 +1,15 @@
 """loan contract terms: kind, original amount, rate, term and amortization
 
-Revision ID: 100
-Revises: 099
+Revision ID: 099
+Revises: 098
 """
 
 import sqlalchemy as sa
 
 from alembic import op
 
-revision = "100"
-down_revision = "099"
+revision = "099"
+down_revision = "098"
 branch_labels = None
 depends_on = None
 
@@ -39,4 +39,3 @@ def downgrade() -> None:
         "loan_kind",
     ):
         op.drop_column("accounts", column)
-

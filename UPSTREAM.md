@@ -14,7 +14,7 @@ All add-ons adhere to a 4-part versioning format: `<upstream_version>.<addon_rev
 
 | Addon | Upstream Version | Addon Version | Last Synced |
 |-------|-----------------|---------------|-------------|
-| `securo/` | v0.17.0 | 0.17.0.0 | 2026-11-05 |
+| `securo/` | v0.18.0 | 0.18.0.0 | 2026-11-07 |
 
 The Securo test add-on (`securo-test/`) was removed on 2026-10-04; `securo/` is now the only tracked Securo add-on and is validated directly via `docker build` + smoke test before release.
 
@@ -114,11 +114,10 @@ When syncing Securo from upstream:
 
 - Backend and frontend code are copied from upstream.
 - Direct port access (port 8080); Ingress was dropped in add-on 0.35.0 so `frontend/` is 100% vanilla upstream code without patches.
+- Alembic migrations (`alembic/versions/`) are 100% vanilla upstream code without any custom numbering or renumbering.
+  - Legacy add-on migration shift (`098`..`103` in versions 0.34.1..0.17.0.0) and legacy `stable_id` column rename are automatically reconciled at startup in `run.sh` prior to running migrations.
 - HAOS-modified backend files (do not overwrite on sync):
   - `securo/backend/pyproject.toml` — fastembed excluded (musl incompatibility)
-  - `securo/backend/alembic/versions/098_account_stable_external_id_legacy_rename.py` — legacy column rename for 0.32/0.33 upgrades
-  - Upstream's migration 098 (`098_loan_property_link.py`) is renumbered to `099_loan_property_link.py` (`revises: 098`) to prevent collision.
-  - Upstream migrations 099–102 are renumbered to 100–103 (`100_loan_terms.py`, `101_registration_setting_follows_env.py`, `102_mortgage_payment_allocations.py`, `103_backfill_enable_banking_external_id.py`).
 - Active patches from `patches/securo/` must be reapplied if upstream has not yet merged them.
 - `uv.lock` must be regenerated after syncing `pyproject.toml` (`uv lock`).
 - `frontend/dist/` is NOT committed — built during `docker build`.

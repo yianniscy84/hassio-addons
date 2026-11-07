@@ -223,6 +223,56 @@ bashio::log.info "Redis is ready."
 # Run database migrations
 # --------------------------------------------------------------------------
 bashio::log.info "Running database migrations..."
+
+# Reconcile legacy HAOS add-on Alembic revision shift (+1 offset from legacy migration 098)
+su -s /bin/sh postgres -c "psql -d securo" << 'EOF'
+DO $$
+DECLARE
+    cur_rev text;
+    has_upstream_103 boolean;
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'alembic_version') THEN
+        SELECT version_num INTO cur_rev FROM alembic_version LIMIT 1;
+
+        -- In legacy add-on 0.34.1..0.17.0.0, revisions 098..103 were shifted by +1.
+        -- Upstream 103 altered payees.user_id to nullable=True.
+        -- If cur_rev is 103 and payees.user_id is not nullable, it was legacy add-on 103 (upstream 102).
+        IF cur_rev = '103' THEN
+            SELECT is_nullable = 'YES' INTO has_upstream_103
+            FROM information_schema.columns
+            WHERE table_name = 'payees' AND column_name = 'user_id';
+
+            IF NOT coalesce(has_upstream_103, false) THEN
+                UPDATE alembic_version SET version_num = '102';
+                RAISE NOTICE 'Realigned legacy add-on migration 103 to upstream 102';
+            END IF;
+        ELSIF cur_rev = '098' THEN
+            UPDATE alembic_version SET version_num = '097';
+            RAISE NOTICE 'Realigned legacy add-on migration 098 to upstream 097';
+        ELSIF cur_rev = '099' THEN
+            UPDATE alembic_version SET version_num = '098';
+            RAISE NOTICE 'Realigned legacy add-on migration 099 to upstream 098';
+        ELSIF cur_rev = '100' THEN
+            UPDATE alembic_version SET version_num = '099';
+            RAISE NOTICE 'Realigned legacy add-on migration 100 to upstream 099';
+        ELSIF cur_rev = '101' THEN
+            UPDATE alembic_version SET version_num = '100';
+            RAISE NOTICE 'Realigned legacy add-on migration 101 to upstream 100';
+        ELSIF cur_rev = '102' THEN
+            UPDATE alembic_version SET version_num = '101';
+            RAISE NOTICE 'Realigned legacy add-on migration 102 to upstream 101';
+        END IF;
+    END IF;
+
+    -- Legacy rename for add-on 0.32/0.33 accounts.stable_id
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='accounts' AND column_name='stable_id')
+       AND NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='accounts' AND column_name='stable_external_id') THEN
+        ALTER TABLE accounts RENAME COLUMN stable_id TO stable_external_id;
+        RAISE NOTICE 'Renamed legacy accounts.stable_id to stable_external_id';
+    END IF;
+END $$;
+EOF
+
 cd "${APP_DIR}"
 python -m alembic upgrade head
 bashio::log.info "Migrations complete."

@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.18.0.0
+
+- Sync with upstream Securo v0.18.0
+- Upstream: Split transactions across several categories by amount or percentage, with list badges and dashboard drill-down support
+- Upstream: Split recurring bills and installment series across categories; occurrences start split and resize with total amount changes
+- Upstream: Category splits persist through CSV export/import, backups, and MCP server
+- Upstream: MCP server addition: read investment ledger with asset transactions and cost basis
+- Upstream: Net worth calculation updates: count credit card or loan positive balances as held money
+- Upstream: Deleting a group settlement removes the transactions it generated
+- Upstream: Preserved fiscal documents when merging payees
+- Upstream: Preserved invoicing records and clients when an author user is deleted (foreign keys set null)
+- Upstream: Preserved catalog metadata and fiscal snapshots when editing draft invoices or agreements
+- Upstream: Clamped yearly asset growth from Feb 29 to Feb 28 in non-leap years
+- Upstream: Re-keyed Enable Banking booked rows whose entry_reference arrives late to avoid duplicates
+- Upstream: Flagged Enable Banking connections when an institution rejects all accounts
+- Upstream: Fixed MCP list_accounts reporting manual account opening balance instead of current balance
+- Addon: Realigned Alembic migrations to 100% vanilla upstream code, eliminating future migration renumbering; startup in `run.sh` automatically reconciles legacy shifted revisions (098..103) and legacy `stable_id` columns
+- Addon: Re-applied Patch 0002 for upstream v0.18.0 (fingerprints without session account_uid, duplicate connection adoption on OAuth reauth, 999-day configurable history window)
+- Addon: Regenerated `uv.lock` with `fastembed` excluded for Alpine musl compatibility
+
 ## 0.17.0.0
 
 - Sync with upstream Securo v0.17.0

@@ -134,12 +134,9 @@ docker run -d --name postiz-smoke -p 5000:5000 -v postiz-data:/data postiz-addon
 See [`UPSTREAM.md`](UPSTREAM.md) for version matrix and sync tracking.
 
 ### Securo Sync Checklist
-1. Copy updated `backend/` and `frontend/` from upstream repository. `frontend/` is 100% vanilla upstream code.
+1. Copy updated `backend/` and `frontend/` from upstream repository. Both `frontend/` and `backend/alembic/versions/` are 100% vanilla upstream code without custom modifications or renumbering.
 2. **Preserve HAOS-specific backend files:**
    - `backend/pyproject.toml` (fastembed exclusion for Alpine musl)
-   - `backend/alembic/versions/098_account_stable_external_id_legacy_rename.py` (legacy rename migration)
-   - Upstream's migration 098 (`098_loan_property_link.py`) is renumbered to `099_loan_property_link.py` (`revises: 098`)
-   - Upstream migrations 099–102 are renumbered to 100–103 (`100_loan_terms.py`, `101_registration_setting_follows_env.py`, `102_mortgage_payment_allocations.py`, `103_backfill_enable_banking_external_id.py`)
 3. **Re-apply active patches (see [`UPSTREAM.md`](UPSTREAM.md)):**
    - Check if upstream merged the PR in the new release.
    - If not yet merged upstream, re-apply active patches:

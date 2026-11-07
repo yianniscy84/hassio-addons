@@ -1,7 +1,7 @@
 """store recorded mortgage payment breakdowns
 
-Revision ID: 102
-Revises: 101
+Revision ID: 101
+Revises: 100
 """
 
 import sqlalchemy as sa
@@ -9,8 +9,8 @@ from sqlalchemy.dialects import postgresql
 
 from alembic import op
 
-revision = "102"
-down_revision = "101"
+revision = "101"
+down_revision = "100"
 branch_labels = None
 depends_on = None
 
@@ -110,4 +110,3 @@ def downgrade() -> None:
     # This migration also upgrades databases from the legacy combined revision.
     # Do not remove mortgage data when rolling back the version marker.
     pass
-
