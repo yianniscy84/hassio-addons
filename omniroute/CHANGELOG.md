@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.8.53.0
+
+- Sync with upstream OmniRoute v3.8.53
+- Upstream: Keak CI UI Kit dashboard redesign, billing cost centers with temporal API keys, Gemini prompt cache mode setting, Copilot quota state detection, Bifrost sidecar fast-path, sing-box embedded service
+- Upstream fixes: Over 580 bug fixes and performance improvements across 370+ provider integrations
+
 ## 3.8.52.0
 
 - Adoption of standardized `<upstream_version>.<addon_revision>` versioning scheme

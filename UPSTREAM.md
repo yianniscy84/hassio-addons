@@ -2,6 +2,8 @@
 
 This file tracks upstream versions for each addon.
 
+Run `python scripts/check_upstream_updates.py` to query GitHub API and compare upstream releases against local configurations.
+
 ## Versioning Policy
 
 All add-ons adhere to a 4-part versioning format: `<upstream_version>.<addon_revision>`.
@@ -22,7 +24,7 @@ The Securo test add-on (`securo-test/`) was removed on 2026-10-04; `securo/` is 
 
 | Addon | Upstream Version | Addon Version | Last Synced |
 |-------|-----------------|---------------|-------------|
-| `omniroute/` | v3.8.52 | 3.8.52.0 | 2026-11-05 |
+| `omniroute/` | v3.8.53 | 3.8.53.0 | 2026-11-17 |
 
 The OmniRoute test add-on (`omniroute-test/`) was removed on 2026-10-17; `omniroute/` is now the only tracked OmniRoute add-on and is validated directly via `docker build` + smoke test before release. Clones from upstream Git tags. Bump `OMNIROUTE_VERSION` in the Dockerfile to update.
 
@@ -30,7 +32,7 @@ The OmniRoute test add-on (`omniroute-test/`) was removed on 2026-10-17; `omniro
 
 | Addon | Upstream Version | Addon Version | Last Synced |
 |-------|-----------------|---------------|-------------|
-| `memos/` | 26.11.0 | 26.11.0.0 | 2026-11-05 |
+| `memos/` | 26.11.1 | 26.11.1.0 | 2026-11-17 |
 
 The memos add-on wraps the pre-built `neosmemo/memos` image. Bump `BUILD_FROM` in the Dockerfile (and `version` in `config.yaml`) to update.
 
@@ -46,7 +48,7 @@ The blinko add-on wraps the pre-built `blinkospace/blinko` image (amd64 + aarch6
 
 | Addon | Upstream Version | Addon Version | Last Synced |
 |-------|-----------------|---------------|-------------|
-| `freellmapi/` | v0.16.19 | 0.16.19.0 | 2026-11-05 |
+| `freellmapi/` | v0.16.31 | 0.16.31.0 | 2026-11-17 |
 
 The freellmapi add-on wraps the pre-built `ghcr.io/tashfeenahmed/freellmapi` image (amd64 + aarch64). Bump `BUILD_FROM` in the Dockerfile (and `version` in `config.yaml`) to update.
 
@@ -62,7 +64,7 @@ The shoutrrr add-on wraps the pre-built `ghcr.io/coollabsio/shoutrrr` image (amd
 
 | Addon | Upstream Version | Addon Version | Last Synced |
 |-------|-----------------|---------------|-------------|
-| `postiz/` | v2.25.3 | 2.25.3.1 | 2026-10-29 |
+| `postiz/` | v2.26.0 | 2.26.0.0 | 2026-11-17 |
 
 The postiz add-on wraps the pre-built `ghcr.io/gitroomhq/postiz-app` image (amd64 + aarch64). Bump `BUILD_FROM` + `BUILD_VERSION` in the Dockerfile (and `version` in `config.yaml`, plus `updater.json`) to update.
 

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.16.31.0
+
+- Sync with upstream FreeLLMAPI v0.16.31 (from v0.16.19)
+- Upstream additions: FreeInference DeepSeek V4 Flash chat/streaming, FreeModel BYOK chat, FreeTTS local personal BYOK speech, Groq Orpheus TTS, Rime speech
+- New catalog adapters & search providers: Outcrawl web search, Zro by MoonMath.ai, PowerTokens provider, November renewable-free catalog additions
+- Stability improvements for media routes, response-model validation, and streaming proxy reliability
+
 ## 0.16.19.0
 
 - Sync with upstream FreeLLMAPI v0.16.19 (from v0.16.8)

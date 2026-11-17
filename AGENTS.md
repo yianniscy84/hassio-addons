@@ -133,6 +133,13 @@ docker run -d --name postiz-smoke -p 5000:5000 -v postiz-data:/data postiz-addon
 
 See [`UPSTREAM.md`](UPSTREAM.md) for version matrix and sync tracking.
 
+Check for upstream releases across all add-ons:
+```bash
+python scripts/check_upstream_updates.py
+# or for markdown output:
+python scripts/check_upstream_updates.py --markdown
+```
+
 ### Securo Sync Checklist
 1. Copy updated `backend/` and `frontend/` from upstream repository. Both `frontend/` and `backend/alembic/versions/` are 100% vanilla upstream code without custom modifications or renumbering.
 2. **Preserve HAOS-specific backend files:**

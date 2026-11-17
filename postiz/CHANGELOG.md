@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.26.0.0
+
+- Sync with upstream Postiz v2.26.0 (from v2.25.3)
+- Security: Organization scoping for post saves and strict admin role verification on billing routes
+- Token Encryption: Opt-in channel token encryption at rest in PostgreSQL (AES-256-GCM via local key or AWS KMS)
+- Connect Links & MCP: New `integrationConnectTool` MCP tool and connect link generator for external channel auth
+- Features: Amazon SES email provider support, Instagram carousels up to 20 media items with alt-text, multi-channel checklist save/delete dialogs
+- Prisma Schema: New performance indexes for Post, Notifications, User, and Errors tables
+
 ## 2.25.3.1
 
 - Added add-on options for social provider OAuth apps, which upstream Postiz reads only from the process environment:
