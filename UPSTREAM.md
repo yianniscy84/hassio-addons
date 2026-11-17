@@ -16,7 +16,7 @@ All add-ons adhere to a 4-part versioning format: `<upstream_version>.<addon_rev
 
 | Addon | Upstream Version | Addon Version | Last Synced |
 |-------|-----------------|---------------|-------------|
-| `securo/` | v0.18.0 | 0.18.0.0 | 2026-11-07 |
+| `securo/` | v0.19.0 | 0.19.0.0 | 2026-11-17 |
 
 The Securo test add-on (`securo-test/`) was removed on 2026-10-04; `securo/` is now the only tracked Securo add-on and is validated directly via `docker build` + smoke test before release.
 
@@ -83,14 +83,13 @@ Upstream merged PR #1106 (superseding open PR #1074) in v0.16.5:
 - Matched on in `_find_existing_connected_account`
 - `run.sh` contains an automatic PostgreSQL rename for legacy `accounts.stable_id` to `accounts.stable_external_id` for installations upgraded from add-on 0.32/0.33.
 
-Patch `0002` was rebased on v0.16.5 to use `stable_external_id` and retains what upstream does not cover:
+Patch `0002` was rebased on v0.19.0 and retains what upstream does not cover:
 
 | Fix | Rationale |
 |---|---|
 | `enable_banking_history_days` (default 999) + `strategy="longest"` | Add-on option; upstream deliberately ships 90 days. The two parts are coupled — dropping `strategy` while keeping 999 would make banks reject the window and fall back to 30 days. |
-| `_txn_fingerprint` excludes the session-scoped `account_uid` | #1074 fixes account-level duplication; this fixes transaction-level duplication on re-key. Complementary. |
-| Duplicate-connection adoption on OAuth reconnect | #1074 only handles accounts within one connection, not a second `BankConnection` row for the same bank. |
-| `_cleanup_legacy_duplicate_accounts` | One-off repair for rows duplicated by add-on 0.31.1/0.31.2. Can be deleted once no installation carries those duplicates. |
+| `_txn_fingerprint` excludes the session-scoped `account_uid` | Fixes transaction-level duplication across re-keying/reauthorization sessions. |
+| Duplicate-connection adoption on OAuth reconnect | Adopts existing stale connection row when reconnecting expired consents through the general Connect Bank flow instead of creating a second connection. |
 
 When syncing Securo from upstream:
 1. Check if the upstream release includes the PR/fix.

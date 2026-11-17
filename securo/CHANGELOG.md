@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.19.0.0
+
+- Sync with upstream Securo v0.19.0
+- Upstream: Plugins catalog support for installing categories, rules, and themes with preview before applying
+- Upstream: Unified library for dashboard, reports, and themes (drag, resize, and configure widgets; 9 themes in light/dark)
+- Upstream: Income & expense statements in Reports, month by month per category group
+- Upstream: Spending progress and transactions display on Budgets page; inline monthly budget editing with historical suggestions
+- Upstream: Ability to change reporting date on synced transactions
+- Upstream: In-app configuration for bank and exchange-rate providers under Admin
+- Upstream: Recurring expense detection and cash-flow forecast via API and MCP server
+- Upstream: Workspace-scoped access tokens for headless scripts and integrations
+- Upstream: Enable Banking sync backoff, unattended background sync allowances, and PSU presence headers
+- Upstream: New Alembic migrations 106–113 (access tokens, rule pack provenance, data plugins, UI library, rekey pre-v0.16.3 fallback IDs, reporting date override, plugin connections, provider settings)
+- Addon: Rebased and streamlined Patch 0002 for v0.19.0 (stable transaction fingerprints without session `account_uid`, automatic stale connection adoption on reauth, configurable 999-day history window with `strategy="longest"`)
+- Addon: Regenerated backend `uv.lock` with `fastembed` excluded for Alpine musl compatibility
+
 ## 0.18.0.0
 
 - Sync with upstream Securo v0.18.0
