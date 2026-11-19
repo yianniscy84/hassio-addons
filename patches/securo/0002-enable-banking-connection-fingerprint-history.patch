@@ -1,10 +1,10 @@
 From bc50fdc6daff011e70d41b1eef207f805fa8757d Mon Sep 17 00:00:00 2001
 From: Ioannis Ioannou <ioannis.ioannou.84@gmail.com>
-Date: Tue, 17 Nov 2026 13:20:00 +0200
+Date: Wed, 19 Nov 2026 18:25:00 +0200
 Subject: [PATCH] fix(enable-banking): stable fingerprints, duplicate-connection
  adoption, and configurable history window
 
-Three targeted fixes layered on top of upstream v0.19.0:
+Three targeted fixes layered on top of upstream v0.20.0:
 
 1. _txn_fingerprint excludes the session-scoped account_uid. Enable
    Banking mints a new uid per session, so a reauthorization re-keyed

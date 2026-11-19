@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.20.0.0
+
+- Sync with upstream Securo v0.20.0
+- Upstream: Plugin-provider connections — integrations that declare `provides` get their own bank connection with `provider = "plugin:<id>"`; provider name columns widened to 128 chars
+- Upstream: Asset transaction splits — the asset ledger can now record stock splits
+- Upstream: Agent tools initialization tracking — agents with no tool rows are no longer granted every tool; existing agents are marked as not initialized
+- Upstream: MCP tool name length extended to 128 characters to match the MCP specification
+- Upstream: Account reserved balances — provider-held earmarked funds (e.g. Pluggy `reservedBalances`) displayed separately
+- Upstream: S3-compatible attachment storage support via `aiobotocore` (opt-in with `STORAGE_PROVIDER=s3`)
+- Upstream: New Alembic migrations 114–118 (plugin-provider connections, asset splits, agent tools initialized, tool name length, reserved balances)
+- Addon: Rebased Patch 0002 for v0.20.0 (stable transaction fingerprints without session `account_uid`, automatic stale connection adoption on reauth, configurable 999-day history window with `strategy="longest"`)
+- Addon: Regenerated backend `uv.lock` with `fastembed` excluded for Alpine musl compatibility
+
 ## 0.19.0.0
 
 - Sync with upstream Securo v0.19.0
