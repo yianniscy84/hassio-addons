@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.21.0.0
+
+- Sync with upstream Securo v0.21.0
+- Upstream: Managed backups & restore — create, schedule, preview, download, and restore backups with retention controls
+- Upstream: Securo as an installable app (PWA) with service worker offline session support
+- Upstream: Custom plugin reports with charts and tables
+- Upstream: Separate cash and investment accounts in dashboard net worth view
+- Upstream: Transaction reminder flags and list filtering
+- Upstream: Copy previous month budgets and convert existing transactions into recurring bills
+- Upstream: Rules matching provider bank categories directly
+- Upstream: Credit card masked numbers linked directly to credit-card transactions
+- Upstream: Accountant P&L export booked in workspace currency
+- Upstream: Enable Banking initial sync full history fetch with `strategy="longest"` (issue #792)
+- Upstream: Asset bulk market price refresh and improved ticker symbol search
+- Upstream: New Alembic migrations 119–124 (asset transaction source price, transaction card masked number, account cards, recurring transaction workspace uniqueness, transaction flag, transaction amount in account currency)
+- Addon: Rebased Patch 0002 for v0.21.0 (stable transaction fingerprints without session `account_uid`, automatic stale connection adoption on reauth, configurable history window with `enable_banking_history_days: 999`)
+- Addon: Regenerated backend `uv.lock` with `fastembed` excluded for Alpine musl compatibility
+
 ## 0.20.0.0
 
 - Sync with upstream Securo v0.20.0

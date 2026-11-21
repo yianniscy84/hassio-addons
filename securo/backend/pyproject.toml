@@ -1,6 +1,6 @@
 [project]
 name = "securo-backend"
-version = "0.20.0"
+version = "0.21.0"
 description = "Securo API - Personal Finance Manager"
 requires-python = ">=3.11"
 # These ranges express intent; the resolved versions live in uv.lock, which is
@@ -40,6 +40,11 @@ dependencies = [
     # legacy ZipCrypto scheme and cannot write an encrypted archive at all,
     # so AES-256 zips need this fork of it.
     "pyzipper>=0.4.0",
+    # Bundled multilingual embedder — only imported on demand by the
+    # agents knowledge-base path. ONNX runtime, ~120 MB model downloaded
+    # on first use to /app/data/embedding_models. Users not on the
+    # agents feature pay zero cost (the package is installed but never
+    # imported).
     # fastembed / onnxruntime intentionally excluded on the Alpine add-on
     # build: onnxruntime publishes no musllinux wheel, so it cannot be
     # installed against musl libc. Native embeddings are unavailable there;

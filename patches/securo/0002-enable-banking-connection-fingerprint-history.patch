@@ -1,10 +1,10 @@
 From bc50fdc6daff011e70d41b1eef207f805fa8757d Mon Sep 17 00:00:00 2001
 From: Ioannis Ioannou <ioannis.ioannou.84@gmail.com>
-Date: Wed, 19 Nov 2026 18:25:00 +0200
+Date: Fri, 21 Nov 2026 12:00:00 +0200
 Subject: [PATCH] fix(enable-banking): stable fingerprints, duplicate-connection
  adoption, and configurable history window
 
-Three targeted fixes layered on top of upstream v0.20.0:
+Three targeted fixes layered on top of upstream v0.21.0:
 
 1. _txn_fingerprint excludes the session-scoped account_uid. Enable
    Banking mints a new uid per session, so a reauthorization re-keyed
@@ -18,18 +18,16 @@ Three targeted fixes layered on top of upstream v0.20.0:
    one matches and it is not active.
 
 3. enable_banking_history_days (default 999) with strategy="longest".
-   Coupled: dropping strategy while keeping 999 makes banks reject the
-   window and fall back to FALLBACK_HISTORY_DAYS (30), which is worse
-   than upstream's 90.
+   Configurable history window allows operators to trade bank
+   rejections against history depth.
 
 Reported upstream as issue #1013.
 ---
 
 diff --git a/backend/app/core/config.py b/backend/app/core/config.py
-index 3f3ebbb..62a1b11 100644
 --- a/backend/app/core/config.py
 +++ b/backend/app/core/config.py
-@@ -45,6 +45,10 @@ class Settings(BaseSettings):
+@@ -77,6 +77,10 @@ class Settings(BaseSettings):
      enable_banking_private_key_file: str = ""  # path to PEM file; takes precedence
      enable_banking_api_url: str = "https://api.enablebanking.com"
      enable_banking_oauth_redirect_uri: str = ""  # empty derives from FRONTEND_URL
@@ -42,10 +40,9 @@ index 3f3ebbb..62a1b11 100644
      # The bridge URL defaults to the beta/sandbox host so users can test with
 
 diff --git a/backend/app/providers/enable_banking.py b/backend/app/providers/enable_banking.py
-index 84b65b0..47b77c1 100644
 --- a/backend/app/providers/enable_banking.py
 +++ b/backend/app/providers/enable_banking.py
-@@ -168,6 +168,10 @@ def _txn_fingerprint(account_uid: str, raw: dict) -> str:
+@@ -291,6 +291,10 @@ def _txn_fingerprint(account_uid: str, raw: dict) -> str:
  
      EB's `entry_reference` is unreliable across providers, so we hash the
      fields most likely to persist across re-fetches of the same booked txn.
@@ -56,7 +53,7 @@ index 84b65b0..47b77c1 100644
      Pending → booked transitions deliberately produce a different id; the
      sync layer's pending↔posted twin matcher handles that.
      """
-@@ -175,7 +179,6 @@ def _txn_fingerprint(account_uid: str, raw: dict) -> str:
+@@ -298,7 +302,6 @@ def _txn_fingerprint(account_uid: str, raw: dict) -> str:
      creditor_identity = _counterparty_identity(raw, "creditor")
      debtor_identity = _counterparty_identity(raw, "debtor")
      parts = [
@@ -64,10 +61,10 @@ index 84b65b0..47b77c1 100644
          str(raw.get("booking_date") or ""),
          str(raw.get("value_date") or ""),
          str(raw.get("transaction_date") or ""),
-@@ -1051,12 +1054,15 @@ class EnableBankingProvider(BankProvider):
-             return await self._fetch_transactions_since(
-                 account_external_id, since, today, payee_source
-             )
+@@ -1276,10 +1279,12 @@ class EnableBankingProvider(BankProvider):
+         )
+         if longest is not None:
+             return longest
 +        settings = get_settings()
 +        history_days = max(1, settings.enable_banking_history_days)
          try:
@@ -77,11 +74,8 @@ index 84b65b0..47b77c1 100644
 +                _history_start(today, history_days),
                  today,
                  payee_source,
-+                longest=True,
              )
-         except httpx.HTTPStatusError as exc:
-             if not _is_wrong_period_error(exc.response):
-@@ -1064,7 +1070,7 @@ class EnableBankingProvider(BankProvider):
+@@ -1289,7 +1294,7 @@ class EnableBankingProvider(BankProvider):
              logger.warning(
                  "Enable Banking rejected a %d-day history window for account %s; "
                  "retrying with %d days",
@@ -90,37 +84,25 @@ index 84b65b0..47b77c1 100644
                  account_external_id,
                  FALLBACK_HISTORY_DAYS,
              )
-@@ -1073,6 +1079,7 @@ class EnableBankingProvider(BankProvider):
-                 _history_start(today, FALLBACK_HISTORY_DAYS),
-                 today,
+@@ -1324,10 +1329,12 @@ class EnableBankingProvider(BankProvider):
+         """
+         if not self._present_psu_headers():
+             return None
++        settings = get_settings()
++        history_days = max(INITIAL_HISTORY_DAYS, settings.enable_banking_history_days)
+         try:
+             return await self._fetch_transactions(
+                 account_external_id,
+-                _history_start(today, INITIAL_HISTORY_DAYS),
++                _history_start(today, history_days),
+                 # No end date: the strategy picks it, as its documentation says.
+                 None,
                  payee_source,
-+                longest=False,
-             )
- 
-     async def _fetch_transactions_since(
-@@ -1143,6 +1150,7 @@ class EnableBankingProvider(BankProvider):
-         start: date,
-         end: date,
-         payee_source: str,
-+        longest: bool = False,
-     ) -> list[TransactionData]:
-         date_from = start.isoformat()
-         date_to = end.isoformat()
-@@ -1154,6 +1162,8 @@ class EnableBankingProvider(BankProvider):
-         seen_transaction_ids: set[str] = set()
-         for _ in range(TRANSACTION_PAGE_LIMIT):
-             params: dict[str, Any] = {"date_from": date_from, "date_to": date_to}
-+            if longest:
-+                params["strategy"] = "longest"
-             if continuation_key:
-                 params["continuation_key"] = continuation_key
-             page = await self._request(
 
 diff --git a/backend/app/services/connection_service.py b/backend/app/services/connection_service.py
-index 6c782e7..5fdb25e 100644
 --- a/backend/app/services/connection_service.py
 +++ b/backend/app/services/connection_service.py
-@@ -1401,6 +1401,39 @@ async def handle_oauth_callback(
+@@ -1760,6 +1760,39 @@ async def handle_oauth_callback(
          await session.refresh(existing_reconnect)
          return existing_reconnect
  
@@ -162,10 +144,9 @@ index 6c782e7..5fdb25e 100644
      initial_settings: dict[str, object] = {"flow_params": flow_params}
 
 diff --git a/backend/tests/test_connection_service.py b/backend/tests/test_connection_service.py
-index 38b3019..838afa1 100644
 --- a/backend/tests/test_connection_service.py
 +++ b/backend/tests/test_connection_service.py
-@@ -481,6 +481,159 @@ async def test_token_reconnect_updates_existing_connection_without_deleting_acco
+@@ -677,6 +677,159 @@ async def test_token_reconnect_updates_existing_connection_without_deleting_acco
      mock_provider.handle_oauth_callback.assert_awaited_once_with("fresh-setup-token")
  
  
@@ -327,10 +308,9 @@ index 38b3019..838afa1 100644
      session: AsyncSession, test_user, test_workspace
 
 diff --git a/backend/tests/test_providers_enable_banking.py b/backend/tests/test_providers_enable_banking.py
-index df1c285..e4bccea 100644
 --- a/backend/tests/test_providers_enable_banking.py
 +++ b/backend/tests/test_providers_enable_banking.py
-@@ -17,6 +17,7 @@ from cryptography.hazmat.primitives import serialization
+@@ -18,6 +18,7 @@ from cryptography.hazmat.primitives import serialization
  from cryptography.hazmat.primitives.asymmetric import rsa
  from jose import jwt
  
@@ -338,66 +318,25 @@ index df1c285..e4bccea 100644
  from app.providers.base import (
      ProviderUserActionRequired,
      SessionExpiredError,
-@@ -573,7 +574,13 @@ def _span_days(request: httpx.Request) -> int:
- 
- 
- @pytest.mark.asyncio
--async def test_get_transactions_default_window_is_90_days_inclusive(eb_keys):
-+async def test_get_transactions_default_window_follows_configured_history_days(eb_keys):
-+    """The add-on requests ENABLE_BANKING_HISTORY_DAYS (999), not upstream's 90.
-+
-+    DEFAULT_HISTORY_DAYS stays as the shipped default for the constant's sake;
-+    the effective window comes from the setting so operators can trade bank
-+    rejections against history depth.
-+    """
-     provider = EnableBankingProvider()
-     requests: list[httpx.Request] = []
- 
-@@ -586,7 +593,28 @@ async def test_get_transactions_default_window_is_90_days_inclusive(eb_keys):
- 
+@@ -822,7 +823,7 @@ async def test_get_transactions_default_window_is_90_days_inclusive(eb_keys):
      assert len(requests) == 1
      assert requests[0].url.params["date_to"] == date.today().isoformat()
+     assert requests[0].url.params.get("strategy") is None
 -    assert _span_days(requests[0]) == DEFAULT_HISTORY_DAYS == 90
 +    assert _span_days(requests[0]) == get_settings().enable_banking_history_days
-+    # An over-long window is narrowed by the bank rather than rejected.
-+    assert requests[0].url.params["strategy"] == "longest"
-+
-+
-+@pytest.mark.asyncio
-+async def test_get_transactions_explicit_since_never_sends_strategy(eb_keys):
-+    """An explicit `since` is the caller's choice; never widen or shorten it."""
-+    provider = EnableBankingProvider()
-+    requests: list[httpx.Request] = []
-+    since = date.today() - timedelta(days=10)
-+
-+    def handler(request: httpx.Request) -> httpx.Response:
-+        requests.append(request)
-+        return httpx.Response(200, json={"transactions": []})
-+
-+    with _patch_client(provider, handler):
-+        await provider.get_transactions(_CREDENTIALS, "acc-1", since)
-+
-+    assert len(requests) == 1
-+    assert "strategy" not in requests[0].url.params
-+    assert _span_days(requests[0]) == 11
  
  
- @pytest.mark.asyncio
-@@ -617,9 +645,12 @@ async def test_get_transactions_retries_shorter_window_on_wrong_period(eb_keys):
-         transactions = await provider.get_transactions(_CREDENTIALS, "acc-1")
+ _USER_PRESENT_HEADERS = {
+@@ -875,7 +876,7 @@ async def test_get_transactions_initial_fetch_asks_for_the_longest_history(eb_ke
+     assert params["strategy"] == "longest"
+     assert "date_to" not in params
+     assert params["date_from"] == (
+-        _utc_today() - timedelta(days=INITIAL_HISTORY_DAYS - 1)
++        _utc_today() - timedelta(days=max(INITIAL_HISTORY_DAYS, get_settings().enable_banking_history_days) - 1)
+     ).isoformat()
+     assert len(transactions) == 1
  
-     assert [_span_days(r) for r in requests] == [
--        DEFAULT_HISTORY_DAYS,
-+        get_settings().enable_banking_history_days,
-         FALLBACK_HISTORY_DAYS,
-     ]
-+    # The retry is a plain bounded window: no strategy, so a bank that caps the
-+    # range gets exactly the fallback and nothing more.
-+    assert "strategy" not in requests[1].url.params
-     expected_id = _entry_reference_external_id(
-         "tx-1",
-         {"amount": "5.00", "currency": "EUR"},
-@@ -1147,6 +1178,45 @@ def test_txn_fingerprint_includes_transaction_date():
+@@ -1818,6 +1819,45 @@ def test_txn_fingerprint_includes_transaction_date():
      assert fp1 != fp2
  
  

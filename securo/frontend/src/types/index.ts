@@ -145,6 +145,8 @@ export interface BankConnection {
   status: string
   settings: ConnectionSettings | null
   last_sync_at: string | null
+  /** Why the last sync failed, until a sync succeeds. */
+  last_sync_failure?: SyncFailure | null
   created_at: string
   // Institutions this link spans (issue #345). Empty for one-institution
   // providers — institution_name covers those.
@@ -153,6 +155,19 @@ export interface BankConnection {
   plugin_connection_id?: string | null
   plugin_id?: string | null
   integration?: string | null
+}
+
+export type SyncFailureCode =
+  | 'psu_present_required'
+  | 'consent_expired'
+  | 'reauthorize_at_provider'
+  | 'rate_limited'
+  | 'provider_error'
+
+export interface SyncFailure {
+  code: SyncFailureCode
+  at: string
+  detail: string | null
 }
 
 export interface ConnectionSettings {
@@ -246,6 +261,13 @@ export interface CreditCardBill {
   minimum_payment: number | null
 }
 
+export interface AccountCard {
+  id: string
+  account_id: string
+  masked_number: string
+  label: string | null
+}
+
 export interface Collection {
   id: string
   user_id: string
@@ -334,6 +356,9 @@ export interface Transaction {
   installment_purchase_date: string | null
   installment_series_id: string | null
   bill_id: string | null
+  // Last four characters of the physical/virtual card that made this charge.
+  // Null when the connected provider does not expose it.
+  card_masked_number?: string | null
   // Manual override for which credit-card bill cycle this tx belongs to
   // (issue #92). Empty / null = use auto bucketing (Pluggy bill_id when
   // available, cycle math otherwise). Setting it forces the tx into the
@@ -342,6 +367,10 @@ export interface Transaction {
   // Optional period-attribution override. The bank-provided `date` remains
   // unchanged; null restores automatic cash/accrual bucketing.
   reporting_date_override: string | null
+  // The date the paginated list filtered and ordered this row by (#1386):
+  // the override, a manual bill date or, in accrual mode, a card's bill due
+  // date. Absent outside the list.
+  reporting_date?: string | null
   // The recurring bill this transaction fulfills, if any (issue #116).
   recurring_transaction_id?: string | null
   splits: TransactionSplit[]
@@ -367,6 +396,11 @@ export interface Transaction {
   is_ignored: boolean
   // Keeps the transaction in the ledger/balance while excluding it from P&L.
   exclude_from_pnl?: boolean
+  // A marker to come back to the row later, with an optional reminder date
+  // (YYYY-MM-DD) and note; only the flagged views read them.
+  is_flagged?: boolean
+  flag_due_date?: string | null
+  flag_note?: string | null
   // Balance right after this row, filled by the server only when the list
   // was asked for it on a single non-credit-card account (#1202).
   // `running_balance_primary` is null when the account is in the primary
@@ -464,6 +498,15 @@ export interface TransactionSplitsInput {
 // TransactionSplitsInput the split section produces, not the
 // TransactionSplit[] rows the API returns, so the edit payload type reflects
 // the form's actual shape.
+// Narrows the flagged views by reminder date: past it, or within a week.
+export type FlagDue = 'overdue' | 'soon'
+
+export interface FlaggedSummary {
+  flagged: number
+  overdue: number
+  due_soon: number
+}
+
 export type TransactionEditPayload = Omit<Partial<Transaction>, 'splits' | 'category_lines'> & {
   splits?: TransactionSplitsInput | null
   category_lines?: TransactionCategoryLinesInput
@@ -728,6 +771,8 @@ export interface InstalledPlugin {
   redirect_uri: string | null
   /** Themes it adds to the library. */
   themes?: PluginTheme[]
+  /** Reports it adds to the reports library. */
+  reports?: PluginReportDefinition[]
 }
 
 export type PluginConnectionStatus = 'pending' | 'active' | 'error' | 'needs_auth'
@@ -813,6 +858,103 @@ export interface PluginRef {
   default: boolean
 }
 
+/** A report a plugin adds to the library: what it adds up, how it splits it, how it's drawn. */
+export interface PluginReportDefinition {
+  key: string
+  name: LocalizedText
+  description?: LocalizedText | null
+  /** Computed by the plugin's code, which returns a view; otherwise a query Securo runs. */
+  code?: boolean
+  inputs?: ('transactions' | 'accounts' | 'categories')[]
+  measure: 'expenses' | 'income' | 'net'
+  group_by?: 'category' | 'category_group' | 'payee' | 'account' | 'month' | null
+  chart: 'bar' | 'line' | 'area' | 'pie' | 'table'
+}
+
+/** How a value in a view is shown. A percent is the number itself: 12.5 is 12.5%. */
+export type ReportViewFormat = 'currency' | 'number' | 'percent' | 'text' | 'date'
+
+/** A report's view: blocks Securo draws with its own components (ADR 0028). */
+export interface ReportView {
+  currency?: string
+  blocks: ReportViewBlock[]
+}
+
+/** How much of a row a block takes, on wide screens; a phone stacks them. */
+export type ReportViewWidth = 'quarter' | 'third' | 'half' | 'two_thirds' | 'full'
+
+export interface ReportViewSeries {
+  name: string
+  values: (number | null)[]
+  color?: string | null
+  /** Drawn as bars, a line or an area, for a chart that mixes them. */
+  kind?: 'bar' | 'line' | 'area' | null
+  axis?: 'left' | 'right'
+  stack?: string | null
+  /** From this x on, a projection: drawn dashed. */
+  projected_from?: string | number | null
+  negative_color?: string | null
+}
+
+export interface ReportViewReference {
+  label?: string | null
+  y?: number | null
+  x?: string | number | null
+  axis?: 'left' | 'right'
+  color?: string | null
+}
+
+interface ReportViewBlockBase {
+  title?: string | null
+  width?: ReportViewWidth | null
+}
+
+export type ReportViewBlock = ReportViewBlockBase &
+  (
+    | { type: 'kpi'; label: string; value: number | null; format?: ReportViewFormat; delta?: number | null; delta_format?: ReportViewFormat | null; delta_good?: 'up' | 'down'; hint?: string | null }
+    | {
+        type: 'chart'
+        chart: 'bar' | 'stacked_bar' | 'horizontal_bar' | 'line' | 'area' | 'stacked_area' | 'pie' | 'donut' | 'scatter' | 'combo'
+        x: (string | number)[]
+        series: ReportViewSeries[]
+        format?: ReportViewFormat
+        y2_format?: ReportViewFormat | null
+        x_format?: 'text' | 'date' | 'month' | 'number'
+        /** A color per point, for a pie, a donut or a one-series bar chart. */
+        colors?: (string | null)[] | null
+        references?: ReportViewReference[]
+      }
+    | { type: 'heatmap'; x: (string | number)[]; y: (string | number)[]; values: (number | null)[][]; format?: ReportViewFormat; x_format?: 'text' | 'date' | 'month' | 'number'; color?: string | null }
+    | { type: 'treemap'; items: { name: string; value?: number | null; color?: string | null; children?: { name: string; value: number; color?: string | null }[] }[]; format?: ReportViewFormat }
+    | { type: 'sankey'; nodes: string[]; links: { source: number; target: number; value: number }[]; format?: ReportViewFormat }
+    | { type: 'waterfall'; steps: { label: string; value: number; total?: boolean }[]; format?: ReportViewFormat }
+    | { type: 'progress'; items: { label: string; value: number; target: number; color?: string | null; hint?: string | null }[]; format?: ReportViewFormat; over_is?: 'bad' | 'good' }
+    | {
+        type: 'table'
+        columns: { key: string; label: string; format?: ReportViewFormat; total?: boolean; bar?: boolean; signed?: boolean }[]
+        rows: Record<string, string | number | null>[]
+        sort_by?: string | null
+        sort_ascending?: boolean
+        page_size?: number
+      }
+    | { type: 'text'; text: string }
+  )
+
+/** A plugin's report, added up by Securo for the period asked. */
+export interface PluginReportResponse {
+  key: string
+  code?: boolean
+  measure?: PluginReportDefinition['measure'] | null
+  group_by?: PluginReportDefinition['group_by']
+  chart?: PluginReportDefinition['chart'] | null
+  currency: string
+  /** A query report's groups. `label` is null for the rows the page names: `none` and `other`. */
+  rows: { key: string; label: string | null; value: number; color: string | null }[]
+  total: number
+  /** A code report's view, as the plugin drew it. */
+  view?: ReportView | null
+}
+
 export interface PluginContents {
   category_groups: { key: string; name: LocalizedText; icon: string; color: string }[]
   categories: {
@@ -835,6 +977,7 @@ export interface PluginContents {
   network?: PluginHost[]
   api_scopes?: PluginScope[]
   themes?: PluginTheme[]
+  reports?: PluginReportDefinition[]
 }
 
 /** One plugin opened from the catalog. */
@@ -1023,6 +1166,17 @@ export interface RecurringPriceChangeHistory {
   changes: RecurringPriceChange[]
 }
 
+/** What the active recurring definitions expect in one month (#532). */
+export interface RecurringMonthSummary {
+  month: string
+  currency: string
+  income: string
+  expenses: string
+  net: string
+  transfer_count: number
+  unconverted_count: number
+}
+
 export interface ProjectedTransaction {
   recurring_id: string
   account_id: string | null
@@ -1032,6 +1186,8 @@ export interface ProjectedTransaction {
   currency: string
   type: 'debit' | 'credit'
   date: string
+  /** The card bill's due date in accrual mode, else `date`. */
+  reporting_date?: string | null
   category_id: string | null
   category_name: string | null
   category_icon: string | null
@@ -1122,6 +1278,12 @@ export interface DashboardSummary {
   pending_categorization_amount: number
   assets_value: Record<string, number>
   assets_value_primary: number
+  /** Checking + savings + wallet (spendable / near-liquid). */
+  cash_balance?: Record<string, number>
+  cash_balance_primary?: number
+  /** Accounts with type=investment (brokerage cash), distinct from assets_value. */
+  investment_accounts?: Record<string, number>
+  investment_accounts_primary?: number
   primary_currency: string
   // At least one currency bucket had no real FX rate, so the *_primary
   // totals sum it at 1:1 and are an estimate, not a conversion (issue #1165).
@@ -1254,6 +1416,9 @@ export interface Asset {
   last_price: number | null
   last_price_at: string | null
   logo_url: string | null
+  // Date the sync provider says current_value refers to (YYYY-MM-DD), when it
+  // reports one. A stale date is the sign that a position stopped updating.
+  provider_value_date: string | null
   // Ledger-derived (issue #235): weighted-average cost per unit (preço médio),
   // cost basis of held units, cumulative realized gain, and whether the holding
   // is driven by the transactions ledger.
@@ -1268,7 +1433,8 @@ export interface AssetOrderImport {
   row: number
   ticker: string
   date: string
-  kind: 'buy' | 'sell'
+  kind: 'buy' | 'sell' | 'split'
+  /** 0 on a split, which carries its ratio in old_units → new_units. */
   quantity: number
   price: number
   fee: number
@@ -1276,6 +1442,8 @@ export interface AssetOrderImport {
   name: string | null
   notes: string | null
   external_id: string | null
+  old_units?: number | null
+  new_units?: number | null
 }
 
 export interface AssetImportRowError {
@@ -1345,6 +1513,12 @@ export interface MarketSymbolQuote {
   currency: string
   price: number
   quote_type: string | null
+}
+
+export interface AssetPriceRefreshResult {
+  refreshed: number
+  skipped: number
+  rate_limited: number
 }
 
 export interface AssetGroup {

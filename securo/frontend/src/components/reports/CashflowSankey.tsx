@@ -117,7 +117,16 @@ export function CashflowSankey({ composition, currency, locale }: CashflowSankey
       t('reports.other'),
     )
 
-    if (income.length === 0 && expense.length === 0 && investment.length === 0) {
+    // Money taken out of investments pays for the month without being income
+    // (#1418). It enters as one source beside income, so spending it shows as
+    // drawn from savings rather than as a deficit.
+    const totalWithdraw = composition
+      .filter((c) => c.group === 'withdrawals' && c.value > 0)
+      .reduce((s, c) => s + c.value, 0)
+
+    if (
+      income.length === 0 && expense.length === 0 && investment.length === 0 && totalWithdraw === 0
+    ) {
       return { nodes: [] as SankeyNodeDatum[], links: [] as SankeyLinkDatum[], hasData: false }
     }
 
@@ -126,7 +135,7 @@ export function CashflowSankey({ composition, currency, locale }: CashflowSankey
     const totalInvest = investment.reduce((s, c) => s + c.value, 0)
     // Surplus is what's left after BOTH spending and investing — so investing
     // shrinks surplus instead of silently inflating it.
-    const net = totalIncome - totalExpense - totalInvest
+    const net = totalIncome + totalWithdraw - totalExpense - totalInvest
 
     const nodes: SankeyNodeDatum[] = []
     const links: SankeyLinkDatum[] = []
@@ -151,6 +160,15 @@ export function CashflowSankey({ composition, currency, locale }: CashflowSankey
         side: 'income',
       }),
     )
+
+    if (totalWithdraw > 0) {
+      pushNode({
+        id: 'withdrawals',
+        name: t('reports.investmentWithdrawals'),
+        color: INVEST_COLOR,
+        side: 'income',
+      })
+    }
 
     // Deficit appears as an inflow on the income side so the centre balances.
     if (net < 0) {
@@ -191,6 +209,9 @@ export function CashflowSankey({ composition, currency, locale }: CashflowSankey
     income.forEach((c, i) =>
       links.push({ source: indexOf.get(`in-${c.key}-${i}`)!, target: centerIdx, value: c.value }),
     )
+    if (totalWithdraw > 0) {
+      links.push({ source: indexOf.get('withdrawals')!, target: centerIdx, value: totalWithdraw })
+    }
     if (net < 0) {
       links.push({ source: indexOf.get('deficit')!, target: centerIdx, value: -net })
     }
@@ -452,30 +473,36 @@ export function CashflowSankey({ composition, currency, locale }: CashflowSankey
         </svg>
       )}
 
-      {/* Accessible table fallback — also a non-visual summary of the flows. */}
-      <table className="sr-only">
-        <caption>{t('reports.flowChartAria')}</caption>
-        <thead>
-          <tr>
-            <th>{t('reports.category')}</th>
-            <th>{t('reports.amount')}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rawNodes
-            .filter((n) => n.side !== 'center')
-            .map((n, i) => {
-              const idx = rawNodes.indexOf(n)
-              const value = layout?.nodes[idx]?.value ?? 0
-              return (
-                <tr key={i}>
-                  <td>{n.name}</td>
-                  <td>{fmtAmount(value)}</td>
-                </tr>
-              )
-            })}
-        </tbody>
-      </table>
+      {/* Accessible table fallback — also a non-visual summary of the flows.
+          `sr-only` goes on a wrapper, never on the table: `overflow` does not
+          apply to table boxes, so a clipped-looking table kept its cells at
+          their natural width and made the whole page 504px wide on a 390px
+          screen. */}
+      <div className="sr-only">
+        <table>
+          <caption>{t('reports.flowChartAria')}</caption>
+          <thead>
+            <tr>
+              <th>{t('reports.category')}</th>
+              <th>{t('reports.amount')}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rawNodes
+              .filter((n) => n.side !== 'center')
+              .map((n, i) => {
+                const idx = rawNodes.indexOf(n)
+                const value = layout?.nodes[idx]?.value ?? 0
+                return (
+                  <tr key={i}>
+                    <td>{n.name}</td>
+                    <td>{fmtAmount(value)}</td>
+                  </tr>
+                )
+              })}
+          </tbody>
+        </table>
+      </div>
     </div>
   )
 }
