@@ -16,7 +16,7 @@ All add-ons adhere to a 4-part versioning format: `<upstream_version>.<addon_rev
 
 | Addon | Upstream Version | Addon Version | Last Synced |
 |-------|-----------------|---------------|-------------|
-| `securo/` | v0.20.0 | 0.20.0.0 | 2026-11-19 |
+| `securo/` | v0.21.0 | 0.21.0.0 | 2026-11-21 |
 
 The Securo test add-on (`securo-test/`) was removed on 2026-10-04; `securo/` is now the only tracked Securo add-on and is validated directly via `docker build` + smoke test before release.
 
@@ -24,7 +24,7 @@ The Securo test add-on (`securo-test/`) was removed on 2026-10-04; `securo/` is 
 
 | Addon | Upstream Version | Addon Version | Last Synced |
 |-------|-----------------|---------------|-------------|
-| `omniroute/` | v3.8.53 | 3.8.53.0 | 2026-11-17 |
+| `omniroute/` | v3.8.54 | 3.8.54.0 | 2026-11-21 |
 
 The OmniRoute test add-on (`omniroute-test/`) was removed on 2026-10-17; `omniroute/` is now the only tracked OmniRoute add-on and is validated directly via `docker build` + smoke test before release. Clones from upstream Git tags. Bump `OMNIROUTE_VERSION` in the Dockerfile to update.
 
@@ -48,7 +48,7 @@ The blinko add-on wraps the pre-built `blinkospace/blinko` image (amd64 + aarch6
 
 | Addon | Upstream Version | Addon Version | Last Synced |
 |-------|-----------------|---------------|-------------|
-| `freellmapi/` | v0.16.31 | 0.16.31.0 | 2026-11-17 |
+| `freellmapi/` | v0.16.37 | 0.16.37.0 | 2026-11-21 |
 
 The freellmapi add-on wraps the pre-built `ghcr.io/tashfeenahmed/freellmapi` image (amd64 + aarch64). Bump `BUILD_FROM` in the Dockerfile (and `version` in `config.yaml`) to update.
 
@@ -56,7 +56,7 @@ The freellmapi add-on wraps the pre-built `ghcr.io/tashfeenahmed/freellmapi` ima
 
 | Addon | Upstream Version | Addon Version | Last Synced |
 |-------|-----------------|---------------|-------------|
-| `shoutrrr/` | 1.5.8 | 1.5.8.0 | 2026-11-05 |
+| `shoutrrr/` | 1.5.9 | 1.5.9.0 | 2026-11-21 |
 
 The shoutrrr add-on wraps the pre-built `ghcr.io/coollabsio/shoutrrr` image (amd64 + aarch64 only; upstream ships no armv7). Bump `BUILD_FROM` + `BUILD_VERSION` in the Dockerfile (and `version` in `config.yaml`, plus `updater.json`) to update.
 
@@ -83,7 +83,7 @@ Upstream merged PR #1106 (superseding open PR #1074) in v0.16.5:
 - Matched on in `_find_existing_connected_account`
 - `run.sh` contains an automatic PostgreSQL rename for legacy `accounts.stable_id` to `accounts.stable_external_id` for installations upgraded from add-on 0.32/0.33.
 
-Patch `0002` was rebased on v0.19.0 and retains what upstream does not cover:
+Patch `0002` was rebased on v0.21.0 and retains what upstream does not cover:
 
 | Fix | Rationale |
 |---|---|
