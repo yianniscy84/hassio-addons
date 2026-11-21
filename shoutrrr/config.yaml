@@ -2,7 +2,7 @@ name: "Shoutrrr"
 description: >-
   Self-hosted social media scheduler — write once and publish to X, Bluesky,
   LinkedIn, Facebook, Instagram, Threads, and Discord from a single calendar.
-version: "1.5.8.0"
+version: "1.5.9.0"
 slug: "shoutrrr"
 init: false
 arch:
@@ -43,6 +43,8 @@ options:
   x_client_secret: ""
   linkedin_client_id: ""
   linkedin_client_secret: ""
+  linkedin_pages_client_id: ""
+  linkedin_pages_client_secret: ""
   facebook_client_id: ""
   facebook_client_secret: ""
   threads_client_id: ""
@@ -72,6 +74,8 @@ schema:
   x_client_secret: password?
   linkedin_client_id: str?
   linkedin_client_secret: password?
+  linkedin_pages_client_id: str?
+  linkedin_pages_client_secret: password?
   facebook_client_id: str?
   facebook_client_secret: password?
   threads_client_id: str?

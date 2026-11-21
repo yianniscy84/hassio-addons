@@ -44,6 +44,8 @@ if [ ! -f "${CONFIG_PATH}" ]; then
   "x_client_secret": "",
   "linkedin_client_id": "",
   "linkedin_client_secret": "",
+  "linkedin_pages_client_id": "",
+  "linkedin_pages_client_secret": "",
   "facebook_client_id": "",
   "facebook_client_secret": "",
   "threads_client_id": "",
@@ -80,6 +82,8 @@ X_CLIENT_ID=$(bashio::config 'x_client_id')
 X_CLIENT_SECRET=$(bashio::config 'x_client_secret')
 LINKEDIN_CLIENT_ID=$(bashio::config 'linkedin_client_id')
 LINKEDIN_CLIENT_SECRET=$(bashio::config 'linkedin_client_secret')
+LINKEDIN_PAGES_CLIENT_ID=$(bashio::config 'linkedin_pages_client_id')
+LINKEDIN_PAGES_CLIENT_SECRET=$(bashio::config 'linkedin_pages_client_secret')
 FACEBOOK_CLIENT_ID=$(bashio::config 'facebook_client_id')
 FACEBOOK_CLIENT_SECRET=$(bashio::config 'facebook_client_secret')
 THREADS_CLIENT_ID=$(bashio::config 'threads_client_id')
@@ -296,6 +300,12 @@ if [ -n "${LINKEDIN_CLIENT_ID}" ] && [ -n "${LINKEDIN_CLIENT_SECRET}" ]; then
     export LINKEDIN_CLIENT_ID="${LINKEDIN_CLIENT_ID}"
     export LINKEDIN_CLIENT_SECRET="${LINKEDIN_CLIENT_SECRET}"
     export LINKEDIN_REDIRECT_URI="${APP_URL}/accounts/callback/linkedin"
+fi
+
+if [ -n "${LINKEDIN_PAGES_CLIENT_ID}" ] && [ -n "${LINKEDIN_PAGES_CLIENT_SECRET}" ]; then
+    export LINKEDIN_PAGES_CLIENT_ID="${LINKEDIN_PAGES_CLIENT_ID}"
+    export LINKEDIN_PAGES_CLIENT_SECRET="${LINKEDIN_PAGES_CLIENT_SECRET}"
+    export LINKEDIN_PAGES_REDIRECT_URI="${APP_URL}/accounts/callback/linkedin-pages"
 fi
 
 if [ -n "${FACEBOOK_CLIENT_ID}" ] && [ -n "${FACEBOOK_CLIENT_SECRET}" ]; then

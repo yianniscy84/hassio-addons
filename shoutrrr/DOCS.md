@@ -37,7 +37,8 @@ Everything (posts, connected-account tokens, analytics, media) stays in `/data` 
 | `mail_from_address` | string | `""` | Sender address. Defaults to `shoutrrr@<app_url host>`. |
 | `mail_from_name` | string | `Shoutrrr` | Sender display name. |
 | `x_client_id` / `x_client_secret` | string / password | `""` | X (Twitter) OAuth 2.0 app credentials. |
-| `linkedin_client_id` / `linkedin_client_secret` | string / password | `""` | LinkedIn OAuth 2.0 (OIDC) app credentials. |
+| `linkedin_client_id` / `linkedin_client_secret` | string / password | `""` | LinkedIn OAuth 2.0 (OIDC) personal app credentials. |
+| `linkedin_pages_client_id` / `linkedin_pages_client_secret` | string / password | `""` | LinkedIn Pages Community Management app credentials. |
 | `facebook_client_id` / `facebook_client_secret` | string / password | `""` | Meta app credentials, shared by Facebook Pages and Instagram. |
 | `threads_client_id` / `threads_client_secret` | string / password | `""` | Threads app credentials (a separate Meta app). |
 | `google_client_id` / `google_client_secret` | string / password | `""` | Google OAuth credentials. When set, "Sign in with Google" is enabled automatically. |
@@ -119,15 +120,13 @@ Notes:
 
 #### Posting to a LinkedIn Page (company)
 
-Shoutrrr can publish as a Page, but the Page must be discovered through the partner-gated Community Management API:
+To connect LinkedIn Pages, you need a separate LinkedIn developer app that has only the Community Management API product:
 
-1. In the LinkedIn app, request the **Community Management API** product and complete app verification. Only then can the app be granted `rw_organization_admin`, `r_organization_social` and `w_organization_social`.
-2. Make sure your LinkedIn account is an **approved admin** of the Page (`organizationAcls` only returns APPROVED roles).
-3. In Shoutrrr open **Settings → Instance → Platforms** and enable **“LinkedIn Pages & engagement inbox (Community Management API)”** — this adds the restricted scopes to the LinkedIn consent request.
-4. Reconnect LinkedIn. After authorizing, Shoutrrr lists your personal profile **and** every Page you administer; pick the Page (you can select both).
-5. Re-target existing drafts/queued posts to the Page account — posts already pointed at the member account keep publishing as the member.
-
-Enabling step 3 before the product is approved makes the LinkedIn authorization fail with `unauthorized_scope_error`, including for personal accounts.
+1. Create a dedicated LinkedIn app at <https://www.linkedin.com/developers/apps>.
+2. **Products** tab: request the **Community Management API** product and complete verification.
+3. **Auth** tab: add the authorized redirect URL `${APP_URL}/accounts/callback/linkedin-pages`.
+4. Copy the Client ID and Client Secret into the add-on's `linkedin_pages_client_id` and `linkedin_pages_client_secret` options and restart the add-on.
+5. In Shoutrrr, connect or reconnect your LinkedIn Page accounts.
 
 ### Facebook + Instagram (one Meta app)
 
