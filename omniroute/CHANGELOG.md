@@ -1,5 +1,12 @@
 # Changelog
 
+## 3.8.54.0
+
+- Sync with upstream OmniRoute v3.8.54 (from v3.8.53)
+- Upstream providers: Official "Sign in with ChatGPT" provider (`chatgpt`, PKCE + live model discovery), MiniMax Code (managed gateway + dashboard device-code sign-in), RenderHour (images, video, speech), MegaBrain (dual auth), EmpirioLabs, ParalonCloud, deAPI, Replicate chat, Cerebrium, Hetzner Inference, Grokified
+- Upstream features: Native `opencode-server` executor, Microsoft 365 Copilot work/school sign-in, GitHub Copilot embeddings, Gemini Lyria 3 music models, custom JSON API provider enhancements
+- Upstream fixes: Over 580 bug fixes and performance improvements across 370+ provider integrations
+
 ## 3.8.53.0
 
 - Sync with upstream OmniRoute v3.8.53
