@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.16.37.0
+
+- Sync with upstream FreeLLMAPI v0.16.37 (from v0.16.31)
+- Upstream additions: cheapllm.shop provider added with free OpenAI-compatible DeepSeek V4.1 Flash 1017 model (supports tools, JSON schema, and image input)
+- Upstream fixes: Providers returning HTTP 200 with an error payload now trigger immediate failover with proper cooldown instead of being treated as empty answers
+- Upstream stability updates and provider catalog sync
+
 ## 0.16.31.0
 
 - Sync with upstream FreeLLMAPI v0.16.31 (from v0.16.19)
